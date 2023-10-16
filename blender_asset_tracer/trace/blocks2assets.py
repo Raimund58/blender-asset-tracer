@@ -213,3 +213,18 @@ def vector_font(block: blendfile.BlendFileBlock) -> typing.Iterator[result.Block
     if path == b"<builtin>":  # builtin font
         return
     yield result.BlockUsage(block, path, path_full_field=field)
+
+
+@dna_code("LA")
+@skip_packed
+def lamp(block: blendfile.BlendFileBlock) -> typing.Iterator[result.BlockUsage]:
+    """Lamp data blocks."""
+    block_ntree = block.get_pointer(b"nodetree", None)
+    if block_ntree is None:
+        return
+    for node in iterators.listbase(block_ntree.get_pointer((b"nodes", b"first"))):
+        storage = node.get_pointer(b"storage")
+        if not storage:
+            continue
+        path, field = storage.get(b"filepath", return_field=True)
+        yield result.BlockUsage(block, path, path_full_field=field)

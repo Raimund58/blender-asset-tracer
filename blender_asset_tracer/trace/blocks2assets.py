@@ -245,3 +245,13 @@ def lamp(block: blendfile.BlendFileBlock) -> typing.Iterator[result.BlockUsage]:
             continue
 
         yield result.BlockUsage(block, path, path_full_field=field)
+
+
+@dna_code("VO")
+@skip_packed
+def open_vdb(block: blendfile.BlendFileBlock) -> typing.Iterator[result.BlockUsage]:
+    """OpenVDB data blocks."""
+    path, field = block.get(b"filepath", return_field=True)
+    is_sequence = bool(block.get(b"is_sequence"))
+
+    yield result.BlockUsage(block, path, path_full_field=field, is_sequence=is_sequence)

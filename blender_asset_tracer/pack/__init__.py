@@ -554,15 +554,26 @@ class Packer:
             bfile.close()
 
     def _copy_asset_and_deps(self, asset_path: pathlib.Path, action: AssetAction):
+        asset_path_is_dir = asset_path.is_dir()
+
         # Copy the asset itself, but only if it's not a sequence (sequences are
         # handled below in the for-loop).
-        if "*" not in str(asset_path) and "<UDIM>" not in asset_path.name:
+        if (
+            "*" not in str(asset_path)
+            and "<UDIM>" not in asset_path.name
+            and not asset_path_is_dir
+        ):
             packed_path = action.new_path
             assert packed_path is not None
             read_path = action.read_from or asset_path
             self._send_to_target(
                 read_path, packed_path, may_move=action.read_from is not None
             )
+
+        if asset_path_is_dir:  # like 'some/directory':
+            asset_base_path = asset_path
+        else:  # like 'some/directory/prefix_*.bphys':
+            asset_base_path = asset_path.parent
 
         # Copy its sequence dependencies.
         for usage in action.usages:
@@ -571,14 +582,24 @@ class Packer:
 
             first_pp = self._actions[usage.abspath].new_path
             assert first_pp is not None
+            log.info(f"first_pp = {first_pp}")
 
             # In case of globbing, we only support globbing by filename,
             # and not by directory.
             assert "*" not in str(first_pp) or "*" in first_pp.name
 
-            packed_base_dir = first_pp.parent
+            if asset_path_is_dir:
+                packed_base_dir = first_pp
+            else:
+                packed_base_dir = first_pp.parent
+
             for file_path in usage.files():
-                packed_path = packed_base_dir / file_path.name
+                # Compute the relative path, to support cases where asset_path
+                # is `some/directory` and the to-be-copied file is in
+                # `some/directory/subdir/filename.txt`.
+                relpath = file_path.relative_to(asset_base_path)
+                packed_path = packed_base_dir / relpath
+
                 # Assumption: assets in a sequence are never blend files.
                 self._send_to_target(file_path, packed_path)
 

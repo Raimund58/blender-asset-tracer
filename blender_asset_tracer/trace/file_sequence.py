@@ -56,7 +56,10 @@ def expand_sequence(path: pathlib.Path) -> typing.Iterator[pathlib.Path]:
         raise DoesNotExist(path)
 
     if path.is_dir():
-        yield path
+        # Explode directory paths into separate files.
+        for subpath in path.rglob("*"):
+            if subpath.is_file():
+                yield subpath
         return
 
     log.debug("expanding file sequence %s", path)

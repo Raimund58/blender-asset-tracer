@@ -90,6 +90,8 @@ class FileTransferer(threading.Thread, metaclass=abc.ABCMeta):
 
     def queue_copy(self, src: pathlib.Path, dst: pathlib.PurePath):
         """Queue a copy action from 'src' to 'dst'."""
+        if src.is_dir():
+            raise TypeError(f"only files can be copied, not directories: {src}")
         assert (
             not self.done.is_set()
         ), "Queueing not allowed after done_and_join() was called"
@@ -103,6 +105,8 @@ class FileTransferer(threading.Thread, metaclass=abc.ABCMeta):
 
     def queue_move(self, src: pathlib.Path, dst: pathlib.PurePath):
         """Queue a move action from 'src' to 'dst'."""
+        if src.is_dir():
+            raise TypeError(f"only files can be moved, not directories: {src}")
         assert (
             not self.done.is_set()
         ), "Queueing not allowed after done_and_join() was called"

@@ -626,7 +626,6 @@ class BlendFileBlock:
             the_bytes = the_bytes[:first_null]
         return the_bytes.decode()
 
-
     def get_recursive_iter(
         self,
         path: dna.FieldPath,

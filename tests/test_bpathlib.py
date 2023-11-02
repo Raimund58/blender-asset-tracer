@@ -39,7 +39,7 @@ class BlendPathTest(unittest.TestCase):
             PurePath("C:/some/file.blend"), BlendPath(b"C:/some/file.blend").to_path()
         )
         self.assertEqual(
-            PurePath("C:/some/file.blend"), BlendPath(br"C:\some\file.blend").to_path()
+            PurePath("C:/some/file.blend"), BlendPath(rb"C:\some\file.blend").to_path()
         )
 
         with mock.patch("sys.getfilesystemencoding") as mock_getfse:

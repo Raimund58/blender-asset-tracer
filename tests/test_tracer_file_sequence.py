@@ -24,7 +24,8 @@ class ExpandFileSequenceTest(AbstractBlendFileTest):
         path = self.blendfiles / "udim/cube_UDIM.color.<UDIM>.png"
         actual = list(file_sequence.expand_sequence(path))
         imgseq = [
-            self.blendfiles / ("udim/cube_UDIM.color.%04d.png" % num) for num in range(1001, 1004)
+            self.blendfiles / ("udim/cube_UDIM.color.%04d.png" % num)
+            for num in range(1001, 1004)
         ]
         self.assertEqual(imgseq, actual)
 

@@ -62,6 +62,7 @@ class AssetHoldingBlocksTest(AbstractTracerTest):
         self.assertEqual(965, len(self.bf.blocks))
         self.assertEqual(4, blocks_seen)
 
+
 class DepsTest(AbstractTracerTest):
     @staticmethod
     def field_name(field: dna.Field) -> typing.Optional[str]:
@@ -191,11 +192,11 @@ class DepsTest(AbstractTracerTest):
     def test_seq_image_udim_sequence(self):
         expects = {
             b"IMcube_UDIM.color": Expect(
-                'Image',
-                'name[1024]',
+                "Image",
+                "name[1024]",
                 None,
                 None,
-                b'//cube_UDIM.color.<UDIM>.png',
+                b"//cube_UDIM.color.<UDIM>.png",
                 True,
             ),
         }

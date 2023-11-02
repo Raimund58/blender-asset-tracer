@@ -25,6 +25,7 @@ import logging
 import pathlib
 import queue
 import typing
+from typing import Optional
 
 import blender_asset_tracer.trace.progress
 
@@ -134,7 +135,7 @@ class ThreadSafeCallback(Callback):
     def missing_file(self, filename: pathlib.Path) -> None:
         self._queue(self.wrapped.missing_file, filename)
 
-    def flush(self, timeout: float = None) -> None:
+    def flush(self, timeout: Optional[float] = None) -> None:
         """Call the queued calls, call this in the main thread."""
 
         while True:

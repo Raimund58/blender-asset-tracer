@@ -19,6 +19,7 @@
 # (c) 2019, Blender Foundation - Sybren A. Stüvel
 import pathlib
 import platform
+from typing import Dict
 
 import responses
 
@@ -29,6 +30,12 @@ httpmock = responses.RequestsMock()
 
 
 class ShamanTransferTest(AbstractBlendFileTest):
+    test_file1: pathlib.Path
+    test_file2: pathlib.Path
+    expected_checksums: Dict[pathlib.Path, str]
+    file_sizes: Dict[pathlib.Path, int]
+    packed_names: Dict[pathlib.Path, str]
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

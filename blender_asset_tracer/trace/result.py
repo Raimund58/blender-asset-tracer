@@ -21,6 +21,7 @@ import functools
 import logging
 import pathlib
 import typing
+from typing import Optional
 
 from blender_asset_tracer import blendfile, bpathlib
 from blender_asset_tracer.blendfile import dna
@@ -57,9 +58,9 @@ class BlockUsage:
         block: blendfile.BlendFileBlock,
         asset_path: bpathlib.BlendPath,
         is_sequence: bool = False,
-        path_full_field: dna.Field = None,
-        path_dir_field: dna.Field = None,
-        path_base_field: dna.Field = None,
+        path_full_field: Optional[dna.Field] = None,
+        path_dir_field: Optional[dna.Field] = None,
+        path_base_field: Optional[dna.Field] = None,
         block_name: bytes = b"",
     ) -> None:
         if block_name:

@@ -25,6 +25,7 @@ import queue
 import threading
 import time
 import typing
+from typing import Optional
 
 from . import progress
 
@@ -186,7 +187,7 @@ class FileTransferer(threading.Thread, metaclass=abc.ABCMeta):
                 if self.done.is_set():
                     return
 
-    def join(self, timeout: float = None) -> None:
+    def join(self, timeout: Optional[float] = None) -> None:
         """Wait for the transfer to finish/stop."""
 
         if timeout:

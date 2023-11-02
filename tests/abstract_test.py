@@ -20,6 +20,7 @@
 import logging
 import pathlib
 import unittest
+from typing import Optional
 
 from blender_asset_tracer import blendfile
 
@@ -29,6 +30,9 @@ logging.basicConfig(
 
 
 class AbstractBlendFileTest(unittest.TestCase):
+    blendfiles: pathlib.Path
+    bf: Optional[blendfile.BlendFile]
+
     @classmethod
     def setUpClass(cls):
         cls.blendfiles = pathlib.Path(__file__).with_name("blendfiles")

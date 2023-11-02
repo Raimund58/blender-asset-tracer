@@ -22,6 +22,7 @@
 import logging
 import os
 import typing
+from typing import Optional
 
 from . import header, exceptions
 
@@ -104,7 +105,7 @@ class Struct:
 
     log = log.getChild("Struct")
 
-    def __init__(self, dna_type_id: bytes, size: int = None) -> None:
+    def __init__(self, dna_type_id: bytes, size: Optional[int] = None) -> None:
         """
         :param dna_type_id: name of the struct in C, like b'AlembicObjectPath'.
         :param size: only for unit tests; typically set after construction by

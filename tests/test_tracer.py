@@ -2,6 +2,7 @@ import collections
 import logging
 import sys
 import typing
+from typing import Optional
 
 from blender_asset_tracer import trace, blendfile
 from blender_asset_tracer.blendfile import dna
@@ -65,7 +66,7 @@ class AssetHoldingBlocksTest(AbstractTracerTest):
 
 class DepsTest(AbstractTracerTest):
     @staticmethod
-    def field_name(field: dna.Field) -> typing.Optional[str]:
+    def field_name(field: Optional[dna.Field]) -> typing.Optional[str]:
         if field is None:
             return None
         return field.name.name_full.decode()
@@ -88,18 +89,18 @@ class DepsTest(AbstractTracerTest):
 
             exp = expects.get(dep.block_name, None)
             if isinstance(exp, (set, list)):
-                self.assertIn(actual, exp, msg="for block %s" % dep.block_name)
+                self.assertIn(actual, exp, msg="for block %r" % dep.block_name)
                 exp.remove(actual)
                 if not exp:
                     # Don't leave empty sets in expects.
                     del expects[dep.block_name]
             elif exp is None:
                 self.assertIsNone(
-                    actual, msg="unexpected dependency of block %s" % dep.block_name
+                    actual, msg="unexpected dependency of block %r" % dep.block_name
                 )
                 del expects[dep.block_name]
             else:
-                self.assertEqual(exp, actual, msg="for block %s" % dep.block_name)
+                self.assertEqual(exp, actual, msg="for block %r" % dep.block_name)
                 del expects[dep.block_name]
 
         # All expected uses should have been seen.

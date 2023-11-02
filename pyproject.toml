@@ -10,7 +10,7 @@ authors = [
     "Sybren A. Stüvel <sybren@blender.org>",
     "Campbell Barton",
     "At Mind B.V. - Jeroen Bakker",
-    ]
+]
 license = "GPL-2.0+"
 classifiers = [
     'Environment :: Console',
@@ -46,7 +46,7 @@ sphinx = "^2.1"
 sphinx-autobuild = "^0.7"
 sphinx-rtd-theme = "^0.4"
 responses = "^0.10"
-pathlib2 = {version = "^2.3", python = "<3.6"}
+pathlib2 = { version = "^2.3", python = "<3.6" }
 tox = "^3.12"
 types-requests = "^2.25.0"
 

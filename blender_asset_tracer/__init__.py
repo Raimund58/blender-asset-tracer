@@ -20,4 +20,4 @@
 
 # <pep8 compliant>
 
-__version__ = "1.17"
+__version__ = "1.18-dev0"

@@ -5,6 +5,8 @@ changed functionality, fixed bugs).
 
 # Version 1.17 (in development)
 
+- Fix issue packing lamps with non-IES 'storage' (File as Flamenco [issue #104269](https://projects.blender.org/studio/flamenco/issues/104269)).
+
 # Version 1.16 (2023-11-02)
 
 - Add `BlendFileBlock.raw_data()` and `.as_string()` functions. These functions interpret the data in a `BlendFileBlock` as either `bytes` or `string`. This can be used to obtain the contents of a `char*` (instead of the more common embedded `char[N]` array).

@@ -226,5 +226,11 @@ def lamp(block: blendfile.BlendFileBlock) -> typing.Iterator[result.BlockUsage]:
         storage = node.get_pointer(b"storage")
         if not storage:
             continue
-        path, field = storage.get(b"filepath", return_field=True)
+
+        # A storage block of `NodeShaderTexIES` type has a `filepath`, but not
+        # all types that can be pointed to by the `storage` pointer do.
+        path, field = storage.get(b"filepath", return_field=True, default=None)
+        if path is None:
+            continue
+
         yield result.BlockUsage(block, path, path_full_field=field)

@@ -3,7 +3,7 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
-# Version 1.17 (in development)
+# Version 1.17 (2023-12-14)
 
 - Fix issue packing lamps with non-IES 'storage' (File as Flamenco [issue #104269](https://projects.blender.org/studio/flamenco/issues/104269)).
 

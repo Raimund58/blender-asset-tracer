@@ -44,9 +44,20 @@ def iter_assets(block: blendfile.BlendFileBlock) -> typing.Iterator[result.Block
     try:
         block_reader = _funcs_for_code[block.code]
     except KeyError:
-        if block.code not in _warned_about_types:
-            log.debug("No reader implemented for block type %r", block.code.decode())
-            _warned_about_types.add(block.code)
+        if block.code in _warned_about_types:
+            return
+
+        blocktype = block.code.decode()
+        filepath = block.get(b"filepath", "", as_str=True)
+        if filepath:
+            log.debug(
+                "No reader implemented for block type %r (filepath=%r)",
+                blocktype,
+                filepath,
+            )
+        else:
+            log.debug("No reader implemented for block type %r", blocktype)
+        _warned_about_types.add(block.code)
         return
 
     log.debug("Tracing block %r", block)

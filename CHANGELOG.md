@@ -3,6 +3,11 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
+# Version 1.18 (in development)
+
+- When logging that there is no reader implemented for a certain data-block type, the filepath of the blend file that contains that data-block is now included in the message ([#92885](https://projects.blender.org/blender/blender-asset-tracer/pulls/92885)).
+
+
 # Version 1.17 (2023-12-14)
 
 - Fix issue packing lamps with non-IES 'storage' (File as Flamenco [issue #104269](https://projects.blender.org/studio/flamenco/issues/104269)).

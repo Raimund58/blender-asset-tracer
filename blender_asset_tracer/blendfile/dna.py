@@ -255,6 +255,7 @@ class Struct:
             )
 
         simple_readers = {
+            b"uchar": endian.read_char,
             b"int": endian.read_int,
             b"short": endian.read_short,
             b"uint64_t": endian.read_ulong,

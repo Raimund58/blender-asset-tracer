@@ -3,7 +3,7 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
-# Version 1.18 (in development)
+# Version 1.18 (2024-01-11)
 
 - When logging that there is no reader implemented for a certain data-block type, the filepath of the blend file that contains that data-block is now included in the message ([#92885](https://projects.blender.org/blender/blender-asset-tracer/pulls/92885)).
 - Add support for tracing OpenVDB files ([#92884](https://projects.blender.org/blender/blender-asset-tracer/pulls/92884)).

@@ -497,6 +497,13 @@ class PackTest(AbstractPackTest):
         else:
             self.fail(f"Expected to have JPEG files in the BAT pack at {self.tpath}.")
 
+    def test_pack_ies_external(self):
+        ppath = self.blendfiles / "ies-lamp"
+        infile = ppath / "ies_scene.blend"
+
+        packer = pack.Packer(infile, ppath, self.tpath)
+        packer.strategise()
+        packer.execute()
 
 class ProgressTest(AbstractPackTest):
     def test_strategise(self):

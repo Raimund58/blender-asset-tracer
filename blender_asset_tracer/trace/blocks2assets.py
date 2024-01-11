@@ -244,7 +244,7 @@ def lamp(block: blendfile.BlendFileBlock) -> typing.Iterator[result.BlockUsage]:
         if path is None:
             continue
 
-        yield result.BlockUsage(block, path, path_full_field=field)
+        yield result.BlockUsage(storage, path, path_full_field=field)
 
 
 @dna_code("VO")

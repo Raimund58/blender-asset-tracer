@@ -8,6 +8,7 @@ changed functionality, fixed bugs).
 - When logging that there is no reader implemented for a certain data-block type, the filepath of the blend file that contains that data-block is now included in the message ([#92885](https://projects.blender.org/blender/blender-asset-tracer/pulls/92885)).
 - Add support for tracing OpenVDB files ([#92884](https://projects.blender.org/blender/blender-asset-tracer/pulls/92884)).
 - Add support for reading `uint8_t` (aka `uchar`, aka `unsigned char`).
+- Fix issue packing lamps with IES files outside of the project folder ([#92886](https://projects.blender.org/blender/blender-asset-tracer/pulls/92886))
 
 # Version 1.17 (2023-12-14)
 

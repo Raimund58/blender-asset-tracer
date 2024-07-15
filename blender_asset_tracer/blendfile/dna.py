@@ -260,6 +260,7 @@ class Struct:
             b"short": endian.read_short,
             b"uint64_t": endian.read_ulong,
             b"float": endian.read_float,
+            b"int8_t": endian.read_int8,
         }
         try:
             simple_reader = simple_readers[dna_type.dna_type_id]

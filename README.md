@@ -8,6 +8,15 @@ Blender Asset Tracer, a.k.a. BAT🦇, is the replacement of
 
 Development is driven by choices explained in [T54125](https://developer.blender.org/T54125).
 
+## Basic access to command line operations
+
+The `cli.py` wrapper at the root of the project can be used to directly access the command line
+tools, without requiring any setup involving `venv` and so on:
+
+```
+python3 path/to/repo/cli.py list path/to/blendfile.blend
+```
+
 ## Setting up development environment
 
 ```

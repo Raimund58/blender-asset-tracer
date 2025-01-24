@@ -130,6 +130,20 @@ class EndianIO:
         raise ValueError("unsupported pointer size %d" % pointer_size)
 
     @classmethod
+    def parse_pointer(cls, pointer_data: bytes):
+        """Parse bytes as a pointer value."""
+
+        pointer_size = len(pointer_data)
+        try:
+            typestruct = {
+                4: cls.UINT,
+                8: cls.ULONG,
+            }[pointer_size]
+        except KeyError:
+            raise ValueError("unsupported pointer size %d" % pointer_size)
+        return typestruct.unpack(pointer_data)[0]
+
+    @classmethod
     def write_pointer(cls, fileobj: typing.IO[bytes], pointer_size: int, value: int):
         """Write a pointer to a file."""
 

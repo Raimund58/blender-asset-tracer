@@ -13,6 +13,7 @@ class BlendFileBlockTest(AbstractBlendFileTest):
 
     def test_loading(self):
         self.assertFalse(self.bf.is_compressed)
+        self.assertEqual(0, self.bf.header.file_format_version)
 
     def test_some_properties(self):
         ob = self.bf.code_index[b"OB"][0]
@@ -152,6 +153,23 @@ class BlendFileBlockTest(AbstractBlendFileTest):
         ob = self.bf.code_index[b"OB"][0]
         assert isinstance(ob, blendfile.BlendFileBlock)
         self.assertEqual("OBümlaut", ob.id_name.decode())
+
+
+class BlendFileLargeBhead8Test(AbstractBlendFileTest):
+    def setUp(self):
+        self.bf = blendfile.BlendFile(self.blendfiles / "basic_file_large_bhead8.blend")
+
+    def test_loading(self):
+        self.assertFalse(self.bf.is_compressed)
+        self.assertEqual(1, self.bf.header.file_format_version)
+
+    def test_some_properties(self):
+        ob = self.bf.code_index[b"OB"][0]
+        self.assertEqual("Object", ob.dna_type_name)
+
+        # Try high level operation to read the object location.
+        loc = ob.get(b"loc")
+        self.assertEqual([2.0, 3.0, 5.0], loc)
 
 
 class PointerTest(AbstractBlendFileTest):

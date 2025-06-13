@@ -135,7 +135,7 @@ class BlendFile:
         self.block_from_addr = {}  # type: typing.Dict[int, BlendFileBlock]
 
         self.header = header.BlendFileHeader(self.fileobj, self.raw_filepath)
-        self.block_header_struct = self.header.create_block_header_struct()
+        self.block_header_struct, self.block_header_fields = self.header.create_block_header_struct()
         self._load_blocks()
 
     def _open_file(self, path: pathlib.Path, mode: str) -> typing.IO[bytes]:
@@ -455,23 +455,13 @@ class BlendFileBlock:
             self.code = b"ENDB"
             return
 
-        # header size can be 8, 20, or 24 bytes long
-        # 8: old blend files ENDB block (exception)
-        # 20: normal headers 32 bit platform
-        # 24: normal headers 64 bit platform
-        if len(data) <= 15:
-            self.log.debug("interpreting block as old-style ENB block")
-            blockheader = self.old_structure.unpack(data)
-            self.code = self.endian.read_data0(blockheader[0])
-            return
-
-        blockheader = header_struct.unpack(data)
-        self.code = self.endian.read_data0(blockheader[0])
+        blockheader = bfile.block_header_fields(*header_struct.unpack(data))
+        self.code = self.endian.read_data0(blockheader.code)
         if self.code != b"ENDB":
-            self.size = blockheader[1]
-            self.addr_old = blockheader[2]
-            self.sdna_index = blockheader[3]
-            self.count = blockheader[4]
+            self.size = blockheader.len
+            self.addr_old = blockheader.old
+            self.sdna_index = blockheader.SDNAnr
+            self.count = blockheader.nr
             self.file_offset = bfile.fileobj.tell()
 
     def __repr__(self) -> str:

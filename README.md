@@ -171,6 +171,6 @@ index-servers =
 pip install twine
 
 poetry build
-twine check dist/blender_asset_tracer-1.18.tar.gz dist/blender_asset_tracer-1.18-*.whl
-twine upload -r bat dist/blender_asset_tracer-1.18.tar.gz dist/blender_asset_tracer-1.18-*.whl
+twine check dist/blender_asset_tracer-1.19.tar.gz dist/blender_asset_tracer-1.19-*.whl
+twine upload -r bat dist/blender_asset_tracer-1.19.tar.gz dist/blender_asset_tracer-1.19-*.whl
 ```

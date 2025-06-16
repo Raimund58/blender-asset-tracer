@@ -37,7 +37,7 @@ zstandard = { version = "^0.15", optional = true }
 mypy = ">=0.942"
 pytest = "^6.2"
 pytest-cov = "^3.0.0"
-twine = "^4.0.1"
+twine = "^5.0.0"
 # for the 'radon cc' command
 radon = "^3.0"
 # for converting profiler output to KCacheGrind input

@@ -3,9 +3,10 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
-# Version 1.19 (in development)
+# Version 1.19 (2025-06-16)
 
 - Add support for tracing dynamic paint caches ([#92889](https://projects.blender.org/blender/blender-asset-tracer/pulls/92889)).
+- Add support for the large blendfile header blocks ([#92893](https://projects.blender.org/blender/blender-asset-tracer/pulls/92893)). This is necessary for compatibility with Blender 5.0.
 
 # Version 1.18 (2024-01-11)
 

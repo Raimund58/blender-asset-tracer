@@ -24,7 +24,7 @@ s3 = ["boto3"]
 zstandard = ["zstandard"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 requests = "^2.11"
 
 # For S3 storage support:
@@ -47,7 +47,6 @@ sphinx = "^2.1"
 sphinx-autobuild = "^0.7"
 sphinx-rtd-theme = "^0.4"
 responses = "^0.10"
-pathlib2 = { version = "^2.3", python = "<3.6" }
 tox = "^3.12"
 types-requests = "^2.25.0"
 

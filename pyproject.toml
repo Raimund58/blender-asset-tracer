@@ -43,9 +43,9 @@ radon = "^3.0"
 # for converting profiler output to KCacheGrind input
 "pyprof2calltree" = "*"
 # For building documentation
-sphinx = "^2.1"
-sphinx-autobuild = "^0.7"
-sphinx-rtd-theme = "^0.4"
+sphinx = "^7.2"
+sphinx-autobuild = "^2024.3"
+sphinx-rtd-theme = "^2.0"
 responses = "^0.10"
 tox = "^3.12"
 types-requests = "^2.25.0"

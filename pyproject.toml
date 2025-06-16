@@ -33,10 +33,11 @@ boto3 = { version = "^1.9", optional = true }
 # For Blender 3.0+ compressed file support.
 zstandard = { version = "^0.15", optional = true }
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 mypy = ">=0.942"
 pytest = "^6.2"
 pytest-cov = "^3.0.0"
+twine = "^4.0.1"
 # for the 'radon cc' command
 radon = "^3.0"
 # for converting profiler output to KCacheGrind input
@@ -53,9 +54,6 @@ types-requests = "^2.25.0"
 [tool.poetry.scripts]
 bat = 'blender_asset_tracer.cli:cli_main'
 
-
-[tool.poetry.group.dev.dependencies]
-twine = "^4.0.1"
 
 [build-system]
 requires = ["poetry>=0.12"]

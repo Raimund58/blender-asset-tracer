@@ -19,13 +19,12 @@ python3 path/to/repo/cli.py list path/to/blendfile.blend
 
 ## Setting up development environment
 
+First install [Poetry](https://python-poetry.org/). Because BAT has different
+requirements than Poetry itself, it is recommended to install Poetry outside the
+virtualenv you use for BAT. After that, run:
+
 ```
-python3.9 -m venv .venv
-. ./.venv/bin/activate
-pip install -U pip
-pip install poetry black
-poetry install
-mypy --install-types
+poetry install --all-extras --all-groups
 ```
 
 

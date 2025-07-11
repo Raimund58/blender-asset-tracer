@@ -3,7 +3,7 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
-# Version 1.20 (in development)
+# Version 1.20 (2025-07-11)
 
 - Add support for Blender 5.0 compositor node trees ([16c208bc8e13](https://projects.blender.org/blender/blender-asset-tracer/commit/16c208bc8e130c8b1233bdb411ecabdab19af3c5)).
 - Make it possible to run BAT with `python -m blender_asset_tracer` ([6c42d06f0590](https://projects.blender.org/blender/blender-asset-tracer/commit/6c42d06f05909d4ac2096e84557d19dd93382f3a)).

@@ -506,6 +506,26 @@ class DepsTest(AbstractTracerTest):
             },
         )
 
+    def test_compositor_nodes(self) -> None:
+        """Test compositor node trees.
+
+        Since Blender 5.0 these use a different DNA field, and can also be
+        linked from other files.
+        """
+        self.assert_deps(
+            "compositor_nodes/compositor_nodes_blender500_workfile.blend",
+            {
+                b"LIcompositor_nodes_blender500_library.blend": Expect(
+                    type="Library",
+                    full_field="name[1024]",
+                    dirname_field=None,
+                    basename_field=None,
+                    asset_path=b"//compositor_nodes_blender500_library.blend",
+                    is_sequence=False,
+                ),
+            },
+        )
+
     def test_usage_abspath(self):
         deps = [
             dep

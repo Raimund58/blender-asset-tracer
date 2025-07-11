@@ -477,3 +477,15 @@ class BlendFileCacheTest(AbstractBlendFileTest):
         self.assertIs(bf, blendfile._cached_bfiles[other])
 
         self.assertEqual(str(bf.raw_filepath), bf.fileobj.name)
+
+
+class BlendFileSubVersionTest(AbstractBlendFileTest):
+    def test_file_subversion(self) -> None:
+        self.bf = blendfile.BlendFile(self.blendfiles / "multiple_materials.blend")
+        self.assertEqual(self.bf.file_subversion, 3)
+
+        self.bf = blendfile.BlendFile(
+            self.blendfiles
+            / "compositor_nodes/compositor_nodes_blender500_library.blend"
+        )
+        self.assertEqual(self.bf.file_subversion, 36)

@@ -122,6 +122,7 @@ class BlendFile:
         self.filepath = path
         self.raw_filepath = path
         self._is_modified = False
+        self.file_subversion = 0
         self.fileobj = self._open_file(path, mode)
 
         self.blocks = []  # type: BFBList
@@ -169,6 +170,8 @@ class BlendFile:
 
             if block.code == b"DNA1":
                 self.decode_structs(block)
+            elif block.code == b"GLOB":
+                self.decode_glob(block)
             else:
                 self.fileobj.seek(block.size, os.SEEK_CUR)
 
@@ -355,6 +358,25 @@ class BlendFile:
                 field = dna.Field(dna_type, dna_name, dna_size, dna_offset)
                 dna_struct.append_field(field)
                 dna_offset += dna_size
+
+    def decode_glob(self, block: "BlendFileBlock") -> None:
+        """Partially decode the GLOB block to get the file sub-version."""
+        # Before this, the subversion didn't exist in 'FileGlobal'.
+        if self.header.version <= 242:
+            self.file_subversion = 0
+            return
+
+        # GLOB can appear in the file before DNA1, and so we cannot use DNA to
+        # parse the fields.
+
+        # The subversion is always the `short` at offset 4.
+        # block_data = io.BytesIO(block.raw_data())
+        endian = self.header.endian
+        self.fileobj.seek(4, os.SEEK_CUR)  # Skip the next 4 bytes.
+        self.file_subversion = endian.read_short(self.fileobj)
+
+        # Skip to the next block.
+        self.fileobj.seek(block.file_offset + block.size, os.SEEK_SET)
 
     def abspath(self, relpath: bpathlib.BlendPath) -> bpathlib.BlendPath:
         """Construct an absolute path from a blendfile-relative path."""

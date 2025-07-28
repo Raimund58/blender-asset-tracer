@@ -204,17 +204,17 @@ class EndianIO:
         return fileobj.write(to_write)
 
     @classmethod
-    def read_bytes0(cls, fileobj, length):
+    def read_bytes0(cls, fileobj: typing.IO[bytes], length: int) -> bytes:
         data = fileobj.read(length)
         return cls.read_data0(data)
 
     @classmethod
-    def read_data0_offset(cls, data, offset):
+    def read_data0_offset(cls, data: bytes, offset: int) -> bytes:
         add = data.find(b"\0", offset) - offset
         return data[offset : offset + add]
 
     @classmethod
-    def read_data0(cls, data):
+    def read_data0(cls, data: bytes) -> bytes:
         add = data.find(b"\0")
         if add < 0:
             return data

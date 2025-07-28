@@ -447,6 +447,12 @@ class BlendFileBlock:
     old_structure = struct.Struct(b"4sI")
     """old blend files ENDB block structure"""
 
+    # Explicitly annotate to avoid `Any` from `.unpack()`.
+    size: int
+    addr_old: int
+    sdna_index: int
+    count: int
+
     def __init__(self, bfile: BlendFile) -> None:
         self.bfile = bfile
 

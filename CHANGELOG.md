@@ -6,6 +6,12 @@ changed functionality, fixed bugs).
 # Version 1.21 (in development)
 
 - Skip packed blend files. BAT will assume that the packed file is self-contained, i.e. any asset used by a packed blend file should also be packed.
+- Support Geometry Node simulation caches ([#92890](https://projects.blender.org/blender/blender-asset-tracer/pulls/92890)).
+- Add a `py.typed` marker file, such that tooling like mypy know BAT has type annotations ([#92895](https://projects.blender.org/blender/blender-asset-tracer/pulls/92895)).
+- Add support for getting individual array items ([#92898](https://projects.blender.org/blender/blender-asset-tracer/pulls/92898)) and iterating dynamic arrays (part of [#92890](https://projects.blender.org/blender/blender-asset-tracer/pulls/92890)).
+- Support setting sub-properties via `block.field_set()` ([#92899](https://projects.blender.org/blender/blender-asset-tracer/pulls/92899)).
+- Make `bat blocks` print the biggest block memory address as hexadecimal ([#92900](https://projects.blender.org/blender/blender-asset-tracer/pulls/92900)).
+
 
 # Version 1.20 (2025-07-11)
 

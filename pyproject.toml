@@ -31,12 +31,12 @@ requests = "^2.11"
 boto3 = { version = "^1.9", optional = true }
 
 # For Blender 3.0+ compressed file support.
-zstandard = { version = "^0.15", optional = true }
+zstandard = { version = "^0.16", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 mypy = ">=0.942"
-pytest = "^6.2"
-pytest-cov = "^3.0.0"
+pytest = "^7.4.4"
+pytest-cov = "^4.1.0"
 twine = "^5.0.0"
 # for the 'radon cc' command
 radon = "^3.0"

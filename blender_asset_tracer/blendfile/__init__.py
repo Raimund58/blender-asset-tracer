@@ -726,7 +726,7 @@ class BlendFileBlock:
             hsh = zlib.adler32(str(value).encode(), hsh)
         return hsh
 
-    def set(self, path: bytes, value):
+    def set(self, path: dna.FieldPath, value):
         dna_struct = self.bfile.structs[self.sdna_index]
         self.bfile.mark_modified()
         self.bfile.fileobj.seek(self.file_offset, os.SEEK_SET)
@@ -835,7 +835,7 @@ class BlendFileBlock:
     def __getitem__(self, path: dna.FieldPath):
         return self.get(path)
 
-    def __setitem__(self, item: bytes, value) -> None:
+    def __setitem__(self, item: dna.FieldPath, value) -> None:
         self.set(item, value)
 
     def has_field(self, name: bytes) -> bool:

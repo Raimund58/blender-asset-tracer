@@ -93,6 +93,10 @@ class StructTest(unittest.TestCase):
         self.s_ulong = dna.Struct(b"ulong", 8)
         self.s_uint64 = dna.Struct(b"uint64_t", 8)
         self.s_uint128 = dna.Struct(b"uint128_t", 16)  # non-supported type
+        self.s_substruct = dna.Struct(b"substruct")
+
+        self.f_substruct_name = dna.Field(self.s_char, dna.Name(b"name[10]"), 10, 0)
+        self.s_substruct.append_field(self.f_substruct_name)
 
         self.f_next = dna.Field(self.s, dna.Name(b"*next"), 8, 0)
         self.f_prev = dna.Field(self.s, dna.Name(b"*prev"), 8, 8)
@@ -109,6 +113,7 @@ class StructTest(unittest.TestCase):
         self.f_testint = dna.Field(self.s_int, dna.Name(b"testint"), 4, 4178)
         self.f_testfloat = dna.Field(self.s_float, dna.Name(b"testfloat"), 4, 4182)
         self.f_testulong = dna.Field(self.s_ulong, dna.Name(b"testulong"), 8, 4186)
+        self.f_substruct = dna.Field(self.s_substruct, dna.Name(b"testsubstruct"), 10, 4194)
 
         self.s.append_field(self.f_next)
         self.s.append_field(self.f_prev)
@@ -125,6 +130,7 @@ class StructTest(unittest.TestCase):
         self.s.append_field(self.f_testint)
         self.s.append_field(self.f_testfloat)
         self.s.append_field(self.f_testulong)
+        self.s.append_field(self.f_substruct)
 
     def test_autosize(self):
         with self.assertRaises(ValueError):
@@ -263,6 +269,19 @@ class StructTest(unittest.TestCase):
         self.assertAlmostEqual(2.79, val[1])
         fileobj.seek.assert_called_with(4144, os.SEEK_CUR)
 
+    def test_struct_field_get_subproperty(self):
+        fileobj = mock.MagicMock(io.BufferedReader)
+        fileobj.read.return_value = b"my_name"
+
+        _, val = self.s.field_get(
+            self.FakeHeader(),
+            fileobj,
+            (b"testsubstruct", b"name"),
+            as_str=True,
+        )
+        self.assertEqual("my_name", val)
+        fileobj.seek.assert_called_with(4194, os.SEEK_CUR)
+
     def test_char_field_set(self):
         fileobj = mock.MagicMock(io.BufferedReader)
         value = 255
@@ -343,4 +362,11 @@ class StructTest(unittest.TestCase):
         value = 3.402823466e38
         expected = struct.pack(b">f", value)
         self.s.field_set(self.FakeHeader(), fileobj, b"testfloat", value)
+        fileobj.write.assert_called_with(expected)
+
+    def test_struct_field_set_subproperty(self):
+        fileobj = mock.MagicMock(io.BufferedReader)
+        expected = b"new_name\x00"
+
+        self.s.field_set(self.FakeHeader(), fileobj, (b"testsubstruct", b"name"), "new_name")
         fileobj.write.assert_called_with(expected)

@@ -81,6 +81,9 @@ def dynamic_array(block: BlendFileBlock) -> typing.Iterator[BlendFileBlock]:
     pointer. BAT interprets these as a single data block, making it hard to
     access individual elements. This function divides the array into individual
     blocks by creating modified copies of the original block.
+
+    See `some_block.get(b'name', array_index)` if you want to access elements by
+    index (instead of iterating).
     """
 
     element_size = block.dna_type.size

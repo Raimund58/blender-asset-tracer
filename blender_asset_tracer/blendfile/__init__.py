@@ -596,6 +596,7 @@ class BlendFileBlock:
         null_terminated=True,
         as_str=False,
         return_field=False,
+        array_index=0,
     ) -> typing.Any:
         """Read a property and return the value.
 
@@ -612,8 +613,20 @@ class BlendFileBlock:
             (assumes UTF-8 encoding).
         :param return_field: When True, returns tuple (dna.Field, value).
             Otherwise just returns the value.
+        :param array_index: If the property is an array, this determines the
+            index of the returned item from that array. Also see
+            `blendfile.iterators.dynamic_array()` for iterating such arrays.
         """
-        self.bfile.fileobj.seek(self.file_offset, os.SEEK_SET)
+        file_offset = self.file_offset
+        if array_index:
+            if not (0 <= array_index < self.count):
+                raise IndexError(
+                    "Invalid 'array_index' for file-block. "
+                    f"Expected int value in range 0-{self.count - 1}, got {array_index}."
+                )
+            file_offset += array_index * self.dna_type.size
+
+        self.bfile.fileobj.seek(file_offset, os.SEEK_SET)
 
         dna_struct = self.bfile.structs[self.sdna_index]
         field, value = dna_struct.field_get(

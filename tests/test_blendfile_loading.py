@@ -46,6 +46,12 @@ class BlendFileBlockTest(AbstractBlendFileTest):
         mname = mesh.get((b"id", b"name"), as_str=True)
         self.assertEqual("MECube³", mname)
 
+        # Try to access different file-block items.
+        verts_ptr = mesh.get(b"mvert")
+        verts = self.bf.block_from_addr[verts_ptr]
+        assert verts.get(b"co") == [-1.0, -1.0, -1.0]
+        assert verts.get(b"co", array_index=1) == [-1.0, -1.0, 1.0]
+
     def test_get_recursive_iter(self):
         ob = self.bf.code_index[b"OB"][0]
         assert isinstance(ob, blendfile.BlendFileBlock)

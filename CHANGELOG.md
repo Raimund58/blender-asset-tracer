@@ -5,6 +5,7 @@ changed functionality, fixed bugs).
 
 # Version 1.21 (in development)
 
+- Require Python version 3.11 or newer.
 - Skip packed blend files. BAT will assume that the packed file is self-contained, i.e. any asset used by a packed blend file should also be packed.
 - Support Geometry Node simulation caches ([#92890](https://projects.blender.org/blender/blender-asset-tracer/pulls/92890)).
 - Add a `py.typed` marker file, such that tooling like mypy know BAT has type annotations ([#92895](https://projects.blender.org/blender/blender-asset-tracer/pulls/92895)).

@@ -1,4 +1,5 @@
 import collections
+import functools
 import logging
 import sys
 import typing
@@ -551,6 +552,56 @@ class DepsTest(AbstractTracerTest):
                 ),
             },
         )
+
+    def test_geonodes_sim_data(self) -> None:
+        # Simplify the rest of the code by putting the values that are the same of all cases here:
+        expect_bake = functools.partial(
+            Expect,
+            dirname_field=None,
+            basename_field=None,
+            is_sequence=True,
+        )
+        expects = {
+            # Two objects that use "Inherit from Modifer":
+            b"OBCustom Bake Path.modifiers[0].bakes[0]": [
+                # Custom path set on the sim node, so this is sim node data.
+                expect_bake(
+                    type="NodesModifierBake",
+                    full_field="*directory",
+                    asset_path=b"//bakePath",
+                ),
+            ],
+            b"OBDefault Bake Path.modifiers[0].bakes[0]": [
+                # NO custom path set on the sim node, so this follows the modifier data.
+                expect_bake(
+                    type="NodesModifierData",
+                    full_field="*simulation_bake_directory",
+                    asset_path=b"//config-on-sim-node",
+                ),
+            ],
+            # Two objects that have the config only on the node itself:
+            b"OBCustom Bake Path.001.modifiers[0].bakes[0]": [
+                expect_bake(
+                    type="NodesModifierBake",
+                    full_field="*directory",
+                    asset_path=b"//set-on-node",
+                ),
+            ],
+            b"OBDefault Bake Path.001.modifiers[0].bakes[0]": [
+                expect_bake(
+                    type="NodesModifierData",
+                    full_field="*simulation_bake_directory",
+                    asset_path=b"//only-set-on-modifier",
+                ),
+            ],
+        }
+
+        # NOTE: there are two more objects in the scene, 'Packed Bake' and
+        # 'Packed Bake.001'. But, because those use packed data (on the modifier
+        # resp. bake level), they should not be listed as dependencies.
+
+        self.maxDiff = None
+        self.assert_deps("geometry-nodes-sim/geonodes-sim-cache.blend", expects)
 
     def test_recursion_loop(self):
         infinite_bfile = self.blendfiles / "recursive_dependency_1.blend"

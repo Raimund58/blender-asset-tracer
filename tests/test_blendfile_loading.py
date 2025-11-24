@@ -297,6 +297,29 @@ class ArrayTest(AbstractBlendFileTest):
             self.assertEqual(name, tex.id_name)
 
 
+class DynamicArrayTest(AbstractBlendFileTest):
+    def test_dynamic_array_of_bakes(self):
+        self.bf = blendfile.BlendFile(self.blendfiles / "multiple_geometry_nodes_bakes.blend")
+        obj = self.bf.code_index[b"OB"][0]
+        assert isinstance(obj, blendfile.BlendFileBlock)
+        modifier = obj.get_pointer((b"modifiers", b"first"))
+        assert isinstance(modifier, blendfile.BlendFileBlock)
+        bakes = modifier.get_pointer(b"bakes")
+
+        bake_count = bakes.count
+        self.assertEqual(3, bake_count)
+
+        for i, bake in enumerate(blendfile.iterators.dynamic_array(bakes)):
+            if i == 0:
+                frame_start = 37
+            if i == 1:
+                frame_start = 5
+            if i == 2:
+                frame_start = 12
+
+            self.assertEqual(frame_start, bake.get(b"frame_start"))
+
+
 class CompressionRecognitionTest(AbstractBlendFileTest):
     def _find_compression_type(self, filename: str) -> magic_compression.Compression:
         path = self.blendfiles / filename

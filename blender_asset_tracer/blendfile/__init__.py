@@ -633,8 +633,8 @@ class BlendFileBlock:
         self.bfile.fileobj.seek(self.file_offset, os.SEEK_SET)
         return self.bfile.fileobj.read(self.size)
 
-    def as_string(self) -> str:
-        """Interpret the bytes of this datablock as null-terminated utf8 string."""
+    def as_bytes_string(self) -> bytes:
+        """Interpret the bytes of this datablock as null-terminated string of raw bytes."""
         the_bytes = self.raw_data()
         try:
             first_null = the_bytes.index(0)
@@ -642,6 +642,11 @@ class BlendFileBlock:
             pass
         else:
             the_bytes = the_bytes[:first_null]
+        return the_bytes
+
+    def as_string(self) -> str:
+        """Interpret the bytes of this datablock as null-terminated utf8 string."""
+        the_bytes = self.as_bytes_string()
         return the_bytes.decode()
 
     def get_recursive_iter(
@@ -819,6 +824,10 @@ class BlendFileBlock:
 
     def __setitem__(self, item: bytes, value) -> None:
         self.set(item, value)
+
+    def has_field(self, name: bytes) -> bool:
+        dna_struct = self.bfile.structs[self.sdna_index]
+        return dna_struct.has_field(name)
 
     def keys(self) -> typing.Iterator[bytes]:
         """Generator, yields all field names of this block."""

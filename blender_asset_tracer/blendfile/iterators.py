@@ -20,6 +20,7 @@
 # (c) 2014, Blender Foundation - Campbell Barton
 # (c) 2018, Blender Foundation - Sybren A. Stüvel
 import typing
+import copy
 
 from blender_asset_tracer import cdefs
 from . import BlendFileBlock
@@ -70,3 +71,24 @@ def modifiers(object_block: BlendFileBlock) -> typing.Iterator[BlendFileBlock]:
     # 'ob->modifiers[...]'
     mods = object_block.get_pointer((b"modifiers", b"first"))
     yield from listbase(mods, next_path=(b"modifier", b"next"))
+
+
+def dynamic_array(block: BlendFileBlock) -> typing.Iterator[BlendFileBlock]:
+    """
+    Generator that yields each element of a dynamic array as a separate block.
+
+    Dynamic arrays are multiple contiguous elements accessed via a single
+    pointer. BAT interprets these as a single data block, making it hard to
+    access individual elements. This function divides the array into individual
+    blocks by creating modified copies of the original block.
+    """
+
+    element_size = block.dna_type.size
+
+    sub_block = copy.copy(block)
+    sub_block.size = element_size
+
+    for i in range(block.count):
+        # When sub_block's data is read, it'll be read from this offset in the blend file.
+        sub_block.file_offset = block.file_offset + i * element_size
+        yield sub_block

@@ -3,7 +3,7 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
-# Version 1.21 (in development)
+# Version 1.21 (2025-11-24)
 
 - Require Python version 3.11 or newer. Versions up to Python 3.14 are supported.
 - Skip packed blend files. BAT will assume that the packed file is self-contained, i.e. any asset used by a packed blend file should also be packed.

@@ -370,6 +370,10 @@ class DepsTest(AbstractTracerTest):
             },
         )
 
+    def test_block_li_packed(self):
+        # Packed libraries should not be traced.
+        self.assert_deps("74871-packed-libraries.blend", {})
+
     def test_deps_recursive(self):
         self.assert_deps(
             "doubly_linked.blend",

@@ -3,6 +3,10 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
+# Version 1.21 (in development)
+
+- Skip packed blend files. BAT will assume that the packed file is self-contained, i.e. any asset used by a packed blend file should also be packed.
+
 # Version 1.20 (2025-07-11)
 
 - Add support for Blender 5.0 compositor node trees ([16c208bc8e13](https://projects.blender.org/blender/blender-asset-tracer/commit/16c208bc8e130c8b1233bdb411ecabdab19af3c5)).

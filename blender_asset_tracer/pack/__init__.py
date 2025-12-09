@@ -481,7 +481,7 @@ class Packer:
 
             # Use tempfile to create a unique name in our temporary directoy.
             # The file should be deleted when self.close() is called, and not
-            # when the bfile_tp object is GC'd.
+            # when the bfile_tmp object is GC'd.
             bfile_tmp = tempfile.NamedTemporaryFile(
                 dir=str(self._rewrite_in),
                 prefix="bat-",
@@ -497,61 +497,73 @@ class Packer:
             bfile = blendfile.open_cached(bfile_path, assert_cached=True)
             bfile.copy_and_rebind(bfile_tp, mode="rb+")
 
-            for usage in action.rewrites:
-                self._check_aborted()
-                assert isinstance(usage, result.BlockUsage)
-                asset_pp = self._actions[usage.abspath].new_path
-                assert isinstance(asset_pp, pathlib.Path)
+            try:
+                self._apply_rewrites_to_blendfile(bfile, action)
+                if bfile.is_modified:
+                    self._progress_cb.rewrite_blendfile(bfile_path)
+            finally:
+                # Make sure we close the file, otherwise changes may not be
+                # flushed before it gets copied. Also this is necessary to clean
+                # up the temporary directory on Windows.
+                bfile.close()
 
-                log.debug("   - %s is packed at %s", usage.asset_path, asset_pp)
-                relpath = bpathlib.BlendPath.mkrelative(asset_pp, bfile_pp)
-                if relpath == usage.asset_path:
-                    log.info("   - %s remained at %s", usage.asset_path, relpath)
-                    continue
+    def _apply_rewrites_to_blendfile(
+        self,
+        bfile: blendfile.BlendFile,
+        action: AssetAction,
+    ):
+        bfile_pp = action.new_path
+        assert bfile_pp is not None
 
-                log.info("   - %s moved to %s", usage.asset_path, relpath)
+        for usage in action.rewrites:
+            self._check_aborted()
+            assert isinstance(usage, result.BlockUsage)
+            asset_pp = self._actions[usage.abspath].new_path
+            assert isinstance(asset_pp, pathlib.Path)
 
-                # Find the same block in the newly copied file.
-                block = bfile.dereference_pointer(usage.block.addr_old)
+            log.debug("   - %s is packed at %s", usage.asset_path, asset_pp)
+            relpath = bpathlib.BlendPath.mkrelative(asset_pp, bfile_pp)
+            if relpath == usage.asset_path:
+                log.info("   - %s remained at %s", usage.asset_path, relpath)
+                continue
 
-                # Pointers can point to a non-existing data block, in which case
-                # either a SegmentationFault exception is thrown, or None is
-                # returned, based on the strict pointer mode set on the
-                # BlendFile class. Since this block was already meant to be
-                # rewritten, it was found before.
-                assert block is not None
+            log.info("   - %s moved to %s", usage.asset_path, relpath)
 
-                if usage.path_full_field is None:
-                    dir_field = usage.path_dir_field
-                    assert dir_field is not None
-                    log.debug(
-                        "   - updating field %s of block %s",
-                        dir_field.name.name_only,
-                        block,
-                    )
-                    reldir = bpathlib.BlendPath.mkrelative(asset_pp.parent, bfile_pp)
-                    written = block.set(dir_field.name.name_only, reldir)
-                    log.debug("   - written %d bytes", written)
+            # Find the same block in the newly copied file.
+            block = bfile.dereference_pointer(usage.block.addr_old)
 
-                    # BIG FAT ASSUMPTION that the filename (e.g. basename
-                    # without path) does not change. This makes things much
-                    # easier, as in the sequence editor the directory and
-                    # filename fields are in different blocks. See the
-                    # blocks2assets.scene() function for the implementation.
-                else:
-                    log.debug(
-                        "   - updating field %s of block %s",
-                        usage.path_full_field.name.name_only,
-                        block,
-                    )
-                    written = block.set(usage.path_full_field.name.name_only, relpath)
-                    log.debug("   - written %d bytes", written)
+            # Pointers can point to a non-existing data block, in which case
+            # either a SegmentationFault exception is thrown, or None is
+            # returned, based on the strict pointer mode set on the
+            # BlendFile class. Since this block was already meant to be
+            # rewritten, it was found before.
+            assert block is not None
 
-            # Make sure we close the file, otherwise changes may not be
-            # flushed before it gets copied.
-            if bfile.is_modified:
-                self._progress_cb.rewrite_blendfile(bfile_path)
-            bfile.close()
+            if usage.path_full_field is None:
+                dir_field = usage.path_dir_field
+                assert dir_field is not None
+                log.debug(
+                    "   - updating field %s of block %s",
+                    dir_field.name.name_only,
+                    block,
+                )
+                reldir = bpathlib.BlendPath.mkrelative(asset_pp.parent, bfile_pp)
+                written = block.set(dir_field.name.name_only, reldir)
+                log.debug("   - written %d bytes", written)
+
+                # BIG FAT ASSUMPTION that the filename (e.g. basename
+                # without path) does not change. This makes things much
+                # easier, as in the sequence editor the directory and
+                # filename fields are in different blocks. See the
+                # blocks2assets.scene() function for the implementation.
+            else:
+                log.debug(
+                    "   - updating field %s of block %s",
+                    usage.path_full_field.name.name_only,
+                    block,
+                )
+                written = block.set(usage.path_full_field.name.name_only, relpath)
+                log.debug("   - written %d bytes", written)
 
     def _copy_asset_and_deps(self, asset_path: pathlib.Path, action: AssetAction):
         asset_path_is_dir = asset_path.is_dir()

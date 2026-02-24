@@ -5,11 +5,11 @@ To test:
 
 Assumes the current working directory is the project root:
 
-$ blender -b batter-tests/root/scene.blend -P pack.py -- target/directory
+$ blender -q -b batter-tests/root/scene.blend -P pack.py -- target/directory
 
 Explicitly provide a root path:
 
-$ blender -b batter-tests/root/scene.blend -P pack.py -- -r /some/other/root target/directory
+$ blender -q -b batter-tests/root/scene.blend -P pack.py -- -r /some/other/root target/directory
 
 """
 
@@ -40,7 +40,6 @@ def main() -> None:
     cli_args = parse_cli_args()
     root_path = cli_args.root_path
 
-    print()
     header = f"Packing, relative to \033[38;5;214m{root_path}\033[0m → {cli_args.target_path}"
     separator = (len(header) - 15) * "-"  #  remove ANSI control codes
     print(separator)
@@ -55,9 +54,8 @@ def main() -> None:
 
         errors = perform_path_rewriting(deps_repo)
 
-    print(separator)
-
     if errors:
+        print(separator)
         print("Errors while packing:")
         for abs_path in sorted(errors):
             errormsg = errors[abs_path]
@@ -72,6 +70,8 @@ def main() -> None:
     pack_entry_point = deps_repo.file_infoes[source_abs_path].relpath_in_pack
     assert pack_entry_point is not None
     create_pack_description(cli_args.target_path, pack_entry_point)
+
+    print(separator)
 
 
 def perform_path_rewriting(
@@ -158,8 +158,6 @@ def create_pack(
 ) -> None:
     """Copy all files in the repository to the target path."""
 
-    print(f"Creating pack at {target_path}")
-
     missing_files = 0
 
     for abs_path, file_info in deps_repo.file_infoes.items():
@@ -189,6 +187,7 @@ def create_pack(
         save_to.parent.mkdir(parents=True, exist_ok=True)
 
         # Actually do the copy.
+        print(file_info.relpath_in_pack)
         shutil.copy2(abs_path, save_to)
 
     if missing_files:

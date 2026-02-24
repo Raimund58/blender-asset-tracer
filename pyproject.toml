@@ -25,7 +25,10 @@ build-backend = "poetry.masonry.api"
 [tool.mypy]
 # Prevent error message that bpy is untyped (most of its code is, indeed, untyped).
 disable_error_code = "import-untyped"
-files = "$MYPY_CONFIG_FILE_DIR/**/*.py"
+files = ["."]
+# Ignore files in directories with ___ in their name. This is just a way to hide
+# things from mypy.
+exclude = "___|^docs/"
 strict = true
 
 [[tool.mypy.overrides]]

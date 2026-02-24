@@ -34,6 +34,7 @@ from batter.path_rewriting_process import BackgroundRewriter, RewriteRequest
 class CLIArgs:
     root_path: Path
     target_path: Path
+    use_relative_only: bool
 
 
 def main() -> None:
@@ -46,9 +47,13 @@ def main() -> None:
     print(header)
     print(separator)
 
+    options = file_usage.Options(
+        use_relative_only=cli_args.use_relative_only,
+    )
+
     # Investigate the blend file, and figure out the dependencies.
     with file_usage.cache_autoclear():
-        deps_repo = file_usage.dependencies_of_current_blendfile(root_path)
+        deps_repo = file_usage.dependencies_of_current_blendfile(root_path, options)
         file_usage.determine_pack_paths_clustered(deps_repo)
         file_usage.determine_rewriting_needs(deps_repo)
 
@@ -213,6 +218,7 @@ def parse_cli_args() -> CLIArgs:
     my_name = Path(__file__).name
     parser = argparse.ArgumentParser(f"blender -b <blendfile> -P {my_name} --")
     parser.add_argument("-r", "--root", type=Path, default=cwd)
+    parser.add_argument("--relative-only", action="store_true", default=False)
     parser.add_argument("target", type=Path)
     args = parser.parse_args(argv)
 
@@ -226,6 +232,7 @@ def parse_cli_args() -> CLIArgs:
     return CLIArgs(
         root_path=args.root.absolute(),
         target_path=args.target,
+        use_relative_only=args.relative_only,
     )
 
 

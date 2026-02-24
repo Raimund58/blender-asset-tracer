@@ -66,6 +66,31 @@ class FileUsageTest(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(expected, deps_repo.file_infoes)
 
+    def test_option_use_relative_only(self) -> None:
+        infile = blendfiles / "absolute_path.blend"
+        load_blendfile(infile)
+
+        options = fu.Options(use_relative_only=True)
+        deps_repo = fu.dependencies_of_current_blendfile(blendfiles, options)
+
+        expected = {
+            # The currently-open blend file itself:
+            infile: fu.FileInfo(
+                needs_relocation=False,
+                relpath_in_pack=PurePath("absolute_path.blend"),
+                references={None},
+            ),
+            # The only asset referred to by relative path:
+            blendfiles / "textures/Bricks/brick_dotted_04-color.jpg": fu.FileInfo(
+                needs_relocation=False,
+                relpath_in_pack=PurePath("textures/Bricks/brick_dotted_04-color.jpg"),
+                references={None},
+            ),
+        }
+
+        self.maxDiff = None
+        self.assertEqual(expected, deps_repo.file_infoes)
+
 
 class PathsOutsideProjectsTest(unittest.TestCase):
     """Test the strategies for handling paths outside the project root."""

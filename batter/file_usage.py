@@ -30,6 +30,16 @@ __all__ = (
 )
 
 
+@dataclasses.dataclass(frozen=True)
+class Options:
+    # Only include dependencies that are referred to by a relative path.
+    # When False, include all dependencies.
+    #
+    # NOTE: This does _not_ cover blend files. These are always included,
+    # regardless of how they are referenced.
+    use_relative_only: bool = False
+
+
 @dataclasses.dataclass
 class FileInfo:
     # Indicator that this file needs relocation.
@@ -114,7 +124,10 @@ class FileDependencyRepository:
         return file_info
 
 
-def dependencies_of_current_blendfile(root_path: Path) -> FileDependencyRepository:
+def dependencies_of_current_blendfile(
+    root_path: Path,
+    options: Options = Options(),
+) -> FileDependencyRepository:
     """Return info about all files used by the currently-open blend file.
 
     Returns a mapping from absolute file path, to a FileInfo about that file.
@@ -159,6 +172,10 @@ def dependencies_of_current_blendfile(root_path: Path) -> FileDependencyReposito
         if owner_id.id_type == "LIBRARY":
             # Skip library data-blocks. They only indicate the use of the
             # library, but give us no information about recursive dependencies.
+            return None
+
+        if options.use_relative_only and _is_blender_path_absolute(path):
+            # Skip absolute paths.
             return None
 
         abspath = path_absolute(path, library=owner_id.library)
@@ -325,6 +342,44 @@ def _path_relative_safe(some_path: PurePath) -> PurePath:
 
     # some_path.with_segments() ensures that the returned path is of the same type as 'some_path'.
     return some_path.with_segments(*parts)
+
+
+def _is_blender_path_absolute(path_from_blender: str) -> bool:
+    """Return True when the path is an absolute path.
+
+    For this function, "absolute" is considered a path that remains valid when
+    the blend file moves to a different directory.
+
+    This does _not_ use pathlib, as it needs to handle Windows paths on Linux
+    and vice versa.
+    """
+    if not path_from_blender:
+        # Empty path is relative by definition.
+        return False
+
+    if len(path_from_blender) >= 2:
+        match path_from_blender[:2]:
+            case "//":
+                # Blendfile-relative.
+                return False
+            case r"\\":
+                # Windows, UNC notation, and that's always absolute.
+                return True
+            case _ if path_from_blender[0].isalpha() and path_from_blender[1] == ":":
+                # Drive letter, is absolute.
+                return True
+
+    match path_from_blender[0]:
+        case "/":
+            # POSIX path, absolute.
+            return True
+        case "\\":
+            # Windows path. This is kind of relative, because it's relative to
+            # the current drive.
+            return True
+
+    # All other cases are considered relative.
+    return False
 
 
 @functools.lru_cache

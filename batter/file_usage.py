@@ -27,7 +27,6 @@ __all__ = (
     "library_is_archive",
     "cache_clear",
     "determine_rewriting_needs",
-    "determine_rewrite_rules",
 )
 
 
@@ -399,7 +398,8 @@ def cache_autoclear() -> Generator[None, None, None]:
 def determine_rewriting_needs(repo: FileDependencyRepository) -> None:
     """Determine while file needs path rewriting.
 
-    Sets file_info.needs_path_rewriting=True on all files that reference a relocated file.
+    Sets file_info.needs_path_rewriting=True and file_info.rewrite_rules on all
+    files that reference a relocated file.
     """
 
     libraries_needing_rewriting: set[BlendFile] = set()
@@ -415,14 +415,7 @@ def determine_rewriting_needs(repo: FileDependencyRepository) -> None:
         file_info = repo.file_infoes[abs_path]
         file_info.needs_path_rewriting = True
 
-
-def determine_rewrite_rules(repo: FileDependencyRepository) -> None:
-    """Determine the path rewrite rules for this repository.
-
-    Sets file_info.rewrite_rules for each blend file that references a
-    relocated file.
-    """
-
+    # Step 3: determine the rewrite rules.
     for file_abs_path, file_info in repo.file_infoes.items():
         assert file_info.relpath_in_pack is not None, (
             "by now all paths in the pack should be known"
@@ -439,6 +432,6 @@ def determine_rewrite_rules(repo: FileDependencyRepository) -> None:
             blendfile_info = repo.file_infoes[blendfile_path]
             # Sanity check:
             assert blendfile_info.needs_path_rewriting, (
-                f"determine_rewriting_needs() should have marked {blendfile_path}"
+                f"should have marked {blendfile_path}"
             )
             blendfile_info.rewrite_rules[file_abs_path] = file_info.relpath_in_pack

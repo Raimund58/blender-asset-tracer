@@ -52,7 +52,6 @@ def main() -> None:
         deps_repo = file_usage.dependencies_of_current_blendfile(root_path)
         file_usage.determine_pack_paths_clustered(deps_repo)
         file_usage.determine_rewriting_needs(deps_repo)
-        file_usage.determine_rewrite_rules(deps_repo)
 
         errors = perform_path_rewriting(deps_repo)
 

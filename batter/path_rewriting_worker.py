@@ -20,9 +20,9 @@ from pathlib import Path
 _logger = logging.getLogger(__name__)
 
 # Ensure Batter can be imported, even when it's not installed as package.
-_my_dir = Path(__file__).resolve().parent
-if str(_my_dir) not in sys.path:
-    sys.path.append(str(_my_dir))
+_batter_parent_dir = Path(__file__).resolve().parent.parent
+if str(_batter_parent_dir) not in sys.path:
+    sys.path.append(str(_batter_parent_dir))
 
 from batter import path_rewriting
 from batter.path_rewriting_process import PipeMessage, PipeMsgType, RewriteRequest

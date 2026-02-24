@@ -42,7 +42,7 @@ def rewrite_file(
     NOTE: This opens the blend file as the main blend file.
 
     This function is meant to be called by the background packer process,
-    see ../_path_rewrite_worker.py.
+    see path_rewriting_worker.py.
 
     :param blendfile: absolute path to the file to operate on.
     :param blendfile_path_in_pack: the blend file's location in the pack,

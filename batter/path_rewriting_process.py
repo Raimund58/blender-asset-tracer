@@ -7,7 +7,7 @@ The `BackgroundRewriter` class runs a background Blender process, and
 communicates with it to perform path rewriting on blend files.
 
 The code in this file is meant to run in the main process. The background
-process will run `../_path_rewrite_worker.py`.
+process will run `path_rewriting_worker.py`.
 """
 
 from __future__ import annotations
@@ -44,7 +44,20 @@ from .type_aliases import RewriteRules
 
 logger = logging.getLogger(__name__)
 
-worker_script_path = Path(__file__).resolve().parent.parent / "_path_rewrite_worker.py"
+# Construct a script that starts the worker.
+#
+# This is not written as Python file for Blender to execute, so that BAT can be
+# shipped as wheel file (so without the Python files directly accessible on the
+# filesystem). And just in case BAT isn't directly importable, also add the
+# parent directory of this file to sys.path (for when running in a development
+# environment).
+script_parent_dir = Path(__file__).resolve().parent.parent
+worker_start_script = """
+import sys
+sys.path.append({!r})
+import batter.path_rewriting_worker
+batter.path_rewriting_worker.main()
+""".format(str(script_parent_dir))
 
 
 # On Linux, 'fork' is the default multiprocessing method. However the Python
@@ -217,8 +230,8 @@ class BackgroundRewriter:
                 bpy.app.binary_path,
                 "--background",
                 "--factory-startup",
-                "-P",
-                worker_script_path,
+                "--python-expr",
+                worker_start_script,
             ],
             env=child_environment,
         )

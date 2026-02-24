@@ -86,7 +86,6 @@ def listdeps(root_path: Path) -> None:
         deps_repo = file_usage.dependencies_of_current_blendfile(root_path)
         file_usage.determine_pack_paths_clustered(deps_repo)
         file_usage.determine_rewriting_needs(deps_repo)
-        file_usage.determine_rewrite_rules(deps_repo)
 
     # Present the info to the terminal.
     print_all_files(deps_repo, root_path)

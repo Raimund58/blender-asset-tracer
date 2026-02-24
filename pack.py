@@ -100,11 +100,49 @@ def perform_path_rewriting(
         # This error means the on_rewrite_done() callback itself caused an exception. That's a bug.
         raise RuntimeError(f"Callback error: {request=}  {errormsg=}  {ex=}")
 
+    # Determine the subset of the data that actually needs rewriting,
+    # and for each file that does, determine its rewritten file path.
+    file_infos_for_rewriting: dict[Path, file_usage.FileInfo] = {}
+    for abs_path, file_info in deps_repo.file_infoes.items():
+        # Skip files that don't need rewriting.
+        if not file_info.needs_path_rewriting:
+            continue
+
+        save_as = path_rewriting.path_in_cache(abs_path, file_info)
+        file_info.rewritten_file_path = save_as
+
+        file_infos_for_rewriting[abs_path] = file_info
+
+    # Check the to-be-rewritten files, as they may have been cached already.
+    for abs_path, file_info in file_infos_for_rewriting.copy().items():
+        assert file_info.rewritten_file_path is not None
+        if not file_info.rewritten_file_path.exists():
+            # This one needs rewriting
+            continue
+
+        try:
+            stat = file_info.rewritten_file_path.stat()
+        except OSError:
+            # If there was an issue reading the file now, it _may_ be ok once
+            # it's been rewritten? Just give it a try.
+            continue
+
+        if stat.st_size == 0:
+            # Zero-byte blend files are never valid, so re-attempt rewriting.
+            continue
+
+        # The cached file seems to be trustworthy, skip rewriting it.
+        del file_infos_for_rewriting[abs_path]
+
+    # Only start the background process if there are actually files to rewrite.
+    if not file_infos_for_rewriting:
+        return {}
+
     bgrewriter = BackgroundRewriter(on_callback_error)
     bgrewriter.start()
 
     try:
-        for abs_path, file_info in deps_repo.file_infoes.items():
+        for abs_path, file_info in file_infos_for_rewriting.items():
             # Skip files that don't need rewriting.
             if not file_info.needs_path_rewriting:
                 continue
@@ -112,25 +150,27 @@ def perform_path_rewriting(
             # Only perform path rewriting when the file actually exists. It's
             # definitely possible for a blend file to refer to missing files.
             if not abs_path.exists():
-                print(f"\033[38;5;214mSkipipng: {abs_path} does not exist\033[0m")
+                print(f"\033[38;5;214mSkipping: {abs_path} does not exist\033[0m")
                 continue
 
             # Sanity check.
             assert file_info.relpath_in_pack is not None, (
                 f"by now relpath_in_pack should be known for every file: {abs_path}"
             )
-
-            save_as = path_rewriting.path_in_cache(abs_path, file_info)
-            file_info.rewritten_file_path = save_as
+            assert file_info.rewritten_file_path is not None, (
+                f"by now rewritten_file_path should be known for every file: {abs_path}"
+            )
 
             bgrewriter.queue_rewrite(
                 abs_path,
                 file_info.relpath_in_pack,
                 file_info.rewrite_rules,
-                save_as,
+                file_info.rewritten_file_path,
                 on_rewrite_done=on_rewrite_done,
             )
-            print(f"\033[96mQueueing: {abs_path} → {save_as}\033[0m")
+            print(
+                f"\033[96mQueueing: {abs_path} → {file_info.rewritten_file_path}\033[0m"
+            )
 
         print(
             "\033[96mAll rewrite operations queued, waiting for sub-process to be done.\033[0m"

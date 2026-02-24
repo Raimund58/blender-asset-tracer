@@ -1,59 +1,51 @@
 [tool.poetry]
-name = "blender-asset-tracer"
-version = "1.22-alpha1"
-homepage = 'https://developer.blender.org/project/profile/79/'
-
-description = "BAT parses Blend files and produces dependency information. After installation run `bat --help`"
-readme = "README.md"
-
-authors = [
-    "Sybren A. Stüvel <sybren@blender.org>",
-    "Campbell Barton",
-    "At Mind B.V. - Jeroen Bakker",
-]
-license = "GPL-2.0+"
-classifiers = [
-    'Environment :: Console',
-    'Intended Audience :: Developers',
-    'Operating System :: OS Independent',
-    'Topic :: Utilities',
-]
-
-[tool.poetry.extras]
-s3 = ["boto3"]
-zstandard = ["zstandard"]
+name = "batter"
+version = "1.0"
+description = "Better version of BAT"
+authors = ["Sybren A. Stüvel <sybren@blender.org>"]
+license = "GPL-3.0-or-later"
 
 [tool.poetry.dependencies]
-python = ">=3.11,<4.0"
-requests = "^2.11"
-
-# For S3 storage support:
-boto3 = { version = "^1.9", optional = true }
-
-# For Blender 3.0+ compressed file support.
-zstandard = { version = "^0.16", optional = true }
+python = "==3.13.*"
 
 [tool.poetry.group.dev.dependencies]
-mypy = ">=0.942"
-pytest = "^7.4.4"
-pytest-cov = "^4.1.0"
-twine = "^5.0.0"
-# for the 'radon cc' command
-radon = "^3.0"
-# for converting profiler output to KCacheGrind input
-"pyprof2calltree" = "*"
-# For building documentation
-sphinx = "^7.2"
-sphinx-autobuild = "^2024.3"
-sphinx-rtd-theme = "^2.0"
-responses = "^0.10"
-tox = "^3.12"
-types-requests = "^2.25.0"
+mypy = "^1.19.1"
+ruff = "^0.15.0"
+# bpy = { version = "5.1.0", source = "michaelgold" }
 
-[tool.poetry.scripts]
-bat = 'blender_asset_tracer.cli:cli_main'
-
+[[tool.poetry.source]]
+name = "michaelgold"
+url = "https://michaelgold.github.io/buildbpy/"
+priority = "supplemental"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
+
+[tool.mypy]
+# Prevent error message that bpy is untyped (most of its code is, indeed, untyped).
+disable_error_code = "import-untyped"
+files = "$MYPY_CONFIG_FILE_DIR/**/*.py"
+strict = true
+
+[[tool.mypy.overrides]]
+# Mypy doesn't like our use of mypy.api for some reason.
+module = "run_mypy"
+ignore_errors = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+lint.select = ["E4", "E7", "E9", "F", "W", "C901"]
+lint.ignore = [
+# Import not at top of file. Batter needs to add to sys.path before importing.
+"E402"
+]
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+lint.fixable = ["ALL"]
+lint.unfixable = []

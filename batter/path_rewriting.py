@@ -31,6 +31,56 @@ def path_in_cache(blendfile: Path, file_info: file_usage.FileInfo) -> Path:
     return path
 
 
+def determine_files_to_rewrite(
+    deps_repo: file_usage.FileDependencyRepository,
+) -> set[Path]:
+    """Return set of files that need path rewriting.
+
+    Sets the FileInfo.rewritten_file_path on all files that need path-rewriting.
+
+    Returns the set of absolute paths of those files, but only if the result of
+    the path rewriting wasn't cached yet.
+    """
+
+    # Determine the subset of the data that actually needs rewriting,
+    # and for each file that does, determine its rewritten file path.
+    blendfiles_to_rewrite: set[Path] = set()
+    for abs_path, file_info in deps_repo.file_infoes.items():
+        # Skip files that don't need rewriting.
+        if not file_info.needs_path_rewriting:
+            continue
+
+        save_as = path_in_cache(abs_path, file_info)
+        file_info.rewritten_file_path = save_as
+
+        blendfiles_to_rewrite.add(abs_path)
+
+    # Check the to-be-rewritten files, as they may have been cached already.
+    for abs_path in blendfiles_to_rewrite.copy():
+        file_info = deps_repo.file_infoes[abs_path]
+        assert file_info.rewritten_file_path is not None
+
+        if not file_info.rewritten_file_path.exists():
+            # This one needs rewriting
+            continue
+
+        try:
+            stat = file_info.rewritten_file_path.stat()
+        except OSError:
+            # If there was an issue reading the file now, it _may_ be ok once
+            # it's been rewritten? Just give it a try.
+            continue
+
+        if stat.st_size == 0:
+            # Zero-byte blend files are never valid, so re-attempt rewriting.
+            continue
+
+        # The cached file seems to be trustworthy, skip rewriting it.
+        blendfiles_to_rewrite.remove(abs_path)
+
+    return blendfiles_to_rewrite
+
+
 def rewrite_file(
     blendfile: Path,
     blendfile_path_in_pack: PurePath,

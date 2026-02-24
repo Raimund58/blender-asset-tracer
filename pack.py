@@ -84,6 +84,12 @@ def perform_path_rewriting(
     path rewriting failed.
     """
 
+    # Only start the background process if there are actually files to rewrite.
+    blendfiles_to_rewrite = path_rewriting.determine_files_to_rewrite(deps_repo)
+    if not blendfiles_to_rewrite:
+        return {}
+
+    # Keep track of failures reported via the callbacks below.
     failures: dict[Path, str] = {}
 
     def on_rewrite_done(request: RewriteRequest, errormsg: str) -> None:
@@ -100,49 +106,13 @@ def perform_path_rewriting(
         # This error means the on_rewrite_done() callback itself caused an exception. That's a bug.
         raise RuntimeError(f"Callback error: {request=}  {errormsg=}  {ex=}")
 
-    # Determine the subset of the data that actually needs rewriting,
-    # and for each file that does, determine its rewritten file path.
-    file_infos_for_rewriting: dict[Path, file_usage.FileInfo] = {}
-    for abs_path, file_info in deps_repo.file_infoes.items():
-        # Skip files that don't need rewriting.
-        if not file_info.needs_path_rewriting:
-            continue
-
-        save_as = path_rewriting.path_in_cache(abs_path, file_info)
-        file_info.rewritten_file_path = save_as
-
-        file_infos_for_rewriting[abs_path] = file_info
-
-    # Check the to-be-rewritten files, as they may have been cached already.
-    for abs_path, file_info in file_infos_for_rewriting.copy().items():
-        assert file_info.rewritten_file_path is not None
-        if not file_info.rewritten_file_path.exists():
-            # This one needs rewriting
-            continue
-
-        try:
-            stat = file_info.rewritten_file_path.stat()
-        except OSError:
-            # If there was an issue reading the file now, it _may_ be ok once
-            # it's been rewritten? Just give it a try.
-            continue
-
-        if stat.st_size == 0:
-            # Zero-byte blend files are never valid, so re-attempt rewriting.
-            continue
-
-        # The cached file seems to be trustworthy, skip rewriting it.
-        del file_infos_for_rewriting[abs_path]
-
-    # Only start the background process if there are actually files to rewrite.
-    if not file_infos_for_rewriting:
-        return {}
-
     bgrewriter = BackgroundRewriter(on_callback_error)
     bgrewriter.start()
 
     try:
-        for abs_path, file_info in file_infos_for_rewriting.items():
+        for abs_path in blendfiles_to_rewrite:
+            file_info = deps_repo.file_infoes[abs_path]
+
             # Skip files that don't need rewriting.
             if not file_info.needs_path_rewriting:
                 continue
@@ -219,7 +189,7 @@ def create_pack(
         save_to = target_path / file_info.relpath_in_pack
         save_to.parent.mkdir(parents=True, exist_ok=True)
 
-        # Actuall do the copy.
+        # Actually do the copy.
         shutil.copy2(abs_path, save_to)
 
     if missing_files:

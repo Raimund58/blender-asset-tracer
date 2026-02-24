@@ -1,47 +1,29 @@
-import abc
 import unittest
 from pathlib import Path, PurePath
+
+import bpy  # pyright: ignore[reportMissingImports]
 
 from . import file_usage as fu
 
 _my_dir = Path(__file__).resolve().parent
-_testfile_root = _my_dir.parent / "tests/blendfiles"
+blendfiles = _my_dir.parent / "tests/blendfiles"
 
 
-class BlendfileLoadingTestCase(unittest.TestCase, metaclass=abc.ABCMeta):
-    test_blend_file: Path
-    """Set on a subclass to load this blendfile.
-
-    Relative paths are interpreted relative to ../batter-tests/
-    """
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        import bpy  # pyright: ignore[reportMissingImports]
-
-        blendfile: Path = cls.test_blend_file
-        if not blendfile.is_absolute():
-            blendfile = _testfile_root / blendfile
-
-        bpy.ops.wm.open_mainfile(filepath=str(blendfile))
-
+class FileUsageTest(unittest.TestCase):
     def tearDown(self) -> None:
         fu.cache_clear()
 
-
-class FileUsageTest(BlendfileLoadingTestCase):
-    test_blend_file = Path("root/scene.blend")
-
     def test_dependencies_of_current_blendfile(self) -> None:
-        import bpy  # pyright: ignore[reportMissingImports]
+        root = blendfiles / "root"
+        infile = root / "scene.blend"
+        load_blendfile(infile)
 
-        root = _testfile_root / "root"
         deps_repo = fu.dependencies_of_current_blendfile(root)
 
         libs = bpy.data.libraries
         expected = {
             # The currently-open blend file itself:
-            _testfile_root / self.test_blend_file: fu.FileInfo(
+            infile: fu.FileInfo(
                 needs_relocation=False,
                 relpath_in_pack=PurePath("scene.blend"),
                 references={None},
@@ -197,3 +179,9 @@ class ShortenPathsTest(unittest.TestCase):
         # Duplicate paths cannot be made unique, and should cause an error.
         with self.assertRaises(RuntimeError):
             fu._shorten_paths(paths)
+
+
+def load_blendfile(blendfile: Path) -> None:
+    op_result = bpy.ops.wm.open_mainfile(filepath=str(blendfile))
+    if "FINISHED" not in op_result:
+        raise RuntimeError(f"Could not open blend file {blendfile}: {op_result}")

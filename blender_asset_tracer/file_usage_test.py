@@ -16,12 +16,13 @@ class FileUsageTest(unittest.TestCase):
     def tearDown(self) -> None:
         fu.cache_clear()
 
-    def test_dependencies_of_current_blendfile(self) -> None:
+    def test_determine_dependencies(self) -> None:
         root = blendfiles / "root"
         infile = root / "scene.blend"
         load_blendfile(infile)
 
-        deps_repo = fu.dependencies_of_current_blendfile(root)
+        deps_repo = fu.FileDependencyRepository(root)
+        fu.determine_dependencies(deps_repo, fu.Options())
 
         libs = bpy.data.libraries
         expected = {
@@ -74,7 +75,9 @@ class FileUsageTest(unittest.TestCase):
         load_blendfile(infile)
 
         options = fu.Options(use_relative_only=True)
-        deps_repo = fu.dependencies_of_current_blendfile(blendfiles, options)
+
+        deps_repo = fu.FileDependencyRepository(blendfiles)
+        fu.determine_dependencies(deps_repo, options)
 
         expected = {
             # The currently-open blend file itself:

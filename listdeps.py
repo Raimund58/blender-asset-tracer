@@ -82,10 +82,7 @@ def show_file_references(root_path: Path) -> None:
 
 def listdeps(root_path: Path) -> None:
     # Investigate the blend file, and figure out the dependencies.
-    with file_usage.cache_autoclear():
-        deps_repo = file_usage.dependencies_of_current_blendfile(root_path)
-        file_usage.determine_pack_paths_clustered(deps_repo)
-        file_usage.determine_rewriting_needs(deps_repo)
+    deps_repo = file_usage.dependencies_of_current_blendfile(root_path)
 
     # Present the info to the terminal.
     print_all_files(deps_repo, root_path)

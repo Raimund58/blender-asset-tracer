@@ -130,15 +130,32 @@ def dependencies_of_current_blendfile(
 ) -> FileDependencyRepository:
     """Return info about all files used by the currently-open blend file.
 
+    This includes the currently-open blend file itself, so that the returned
+    data is a complete picture of all relevant files.
+    """
+
+    with cache_autoclear():
+        deps_repo = FileDependencyRepository(root_path=root_path)
+        determine_dependencies(deps_repo, options)
+        determine_pack_paths_clustered(deps_repo)
+        determine_rewriting_needs(deps_repo)
+
+    return deps_repo
+
+
+def determine_dependencies(
+    deps_repo: FileDependencyRepository,
+    options: Options = Options(),
+) -> None:
+    """Return info about all files used by the currently-open blend file.
+
     Returns a mapping from absolute file path, to a FileInfo about that file.
     This includes the currently-open blend file itself, so that the returned
     data is a complete picture of all relevant files.
 
-    When the absolute file path sits outside the given root path, the FileInfo
-    will be marked as "needs relocation", and the path in the pack will be None.
+    When a file sits outside the given root path, the FileInfo will be marked
+    as "needs relocation", and the path in the pack will be None.
     """
-
-    deps_repo = FileDependencyRepository(root_path=root_path)
 
     # Add the current blend file itself.
     deps_repo.add_file(library_abspath(None), used_by_library=None)
@@ -183,8 +200,6 @@ def dependencies_of_current_blendfile(
         return None
 
     bpy.data.file_path_foreach(_visit_path_usage)
-
-    return deps_repo
 
 
 def determine_pack_paths_clustered(repo: FileDependencyRepository) -> None:

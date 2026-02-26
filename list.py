@@ -33,8 +33,7 @@ ANSI_PLAIN = 90
 
 
 def main(cli_args: CLIArgs) -> None:
-    with file_usage.cache_autoclear():
-        deps_repo = file_usage.dependencies_of_current_blendfile(cli_args.root_path)
+    deps_repo = file_usage.dependencies_of_current_blendfile(cli_args.root_path)
 
     cwd = Path().resolve()
     for abs_path in sorted(deps_repo.file_infoes):

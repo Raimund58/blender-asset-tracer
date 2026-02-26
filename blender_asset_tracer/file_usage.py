@@ -397,7 +397,7 @@ def _is_blender_path_absolute(path_from_blender: str) -> bool:
     return False
 
 
-@functools.lru_cache
+@functools.lru_cache(maxsize=1024)
 def library_abspath(lib: BlendFile | None) -> Path:
     """Return the absolute path to the library.
 
@@ -419,7 +419,7 @@ def library_is_packed(lib: BlendFile) -> bool:
     return lib.packed_file is not None
 
 
-@functools.lru_cache
+@functools.lru_cache(maxsize=1024)
 def library_is_archive(lib: BlendFile) -> bool:
     """Check for 'archive libraries', used for 'packed assets'.
 

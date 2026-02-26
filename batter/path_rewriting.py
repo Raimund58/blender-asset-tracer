@@ -193,9 +193,16 @@ def _compute_ophash(blendfile: Path, file_info: file_usage.FileInfo) -> str:
     # good when the file gets renamed.
     directory_in_pack = str(file_info.relpath_in_pack.parent)
 
-    # Sort the rewrite rules for reproducibility.
+    # Sort the rewrite rules for reproducibility. The POSIX notation is used
+    # here to ensure the produced hash is the same on Windows and POSIX
+    # platforms.
+    #
+    # WARNING: This is JUST for the hashing. In general this should NOT be done,
+    # as it potentially changes UNC notation (`\\SERVER\Share\path`) to
+    # blendfile-relative paths (`//path/to/asset`).
     rules_for_hash = sorted(
-        f"{key}:{value}" for key, value in file_info.rewrite_rules.items()
+        f"{key.as_posix()}:{value.as_posix()}"
+        for key, value in file_info.rewrite_rules.items()
     )
 
     # Combine the file's hash with the rewrite rules to obtain the operation hash.

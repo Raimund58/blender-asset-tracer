@@ -46,8 +46,28 @@ class PathRewritingTest(unittest.TestCase):
         # Double-check that the blend file itself hasn't changed. Otherwise this
         # test will fail in mysterious ways.
         file_hash = hashlib.sha256(self.blendfile.read_bytes()).hexdigest()
-        expecthash = "1e0eb6aef22be138082cd114cf2739ee3943f2eb1cefe8e4e97278a7f027bd2b"
-        self.assertEqual(expecthash, file_hash)
+        blend_hash = "1e0eb6aef22be138082cd114cf2739ee3943f2eb1cefe8e4e97278a7f027bd2b"
+        self.assertEqual(
+            blend_hash,
+            file_hash,
+            "The file on disk has changed, test needs updating",
+        )
+
+        # Double-check that the Disk File Hash Service produces the same hash. Otherwise this
+        # test will fail in mysterious ways.
+        from _bpy_internal import (  # pyright: ignore[reportMissingImports]
+            disk_file_hash_service as dfhs,
+        )
+
+        hash_service = dfhs.get_service(path_rewriting._hash_storage_path)
+        dfhs_file_hash: str = hash_service.get_hash(
+            self.blendfile, path_rewriting._hash_method
+        )
+        self.assertEqual(
+            blend_hash,
+            dfhs_file_hash,
+            "The Disk File Hash Service returned an unexpected hash",
+        )
 
         # Test the hash function.
         ophash = path_rewriting._compute_ophash(self.blendfile, file_info)

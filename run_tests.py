@@ -31,7 +31,6 @@ class CustomTestLoader(unittest.TestLoader):
 
 
 def main() -> NoReturn:
-    tracemalloc.start()
 
     if "--" in sys.argv:
         argv = sys.argv[sys.argv.index("--") + 1 :].copy()
@@ -39,6 +38,7 @@ def main() -> NoReturn:
         argv = []
 
     loader = CustomTestLoader()
+    tracemalloc.start()
     test_prog = unittest.main(
         module=None,  # Triggers test file discovery.
         testLoader=loader,

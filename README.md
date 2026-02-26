@@ -22,13 +22,23 @@ The BAT v1 code can be found in [the v1 branch](https://projects.blender.org/ble
 
 ## Setting up development environment
 
-First install [Poetry](https://python-poetry.org/). Because BAT has different
-requirements than Poetry itself, it is recommended to install Poetry outside the
-virtualenv you use for BAT. After that, run:
+First [install UV](https://docs.astral.sh/uv/#installation). Make sure your shell can run the `uv` command.
+Run these commands:
 
+```bash
+$ uv sync                     # Create virtual environment, install dependencies.
+$ uv run python run_mypy.py   # Run static type analysis.
+$ uv run python run_tests.py  # Run unit tests.
 ```
-poetry install --all-extras --all-groups
+
+If any of the `uv run` commands fail because they cannot find Blender, provide the path:
+
+```bash
+$ uv run python run_tests.py ~/Downloads/blenders/blender-5.1-beta/blender
+$ uv run python run_tests.py C:\Downloads\blenders\blender-5.1-beta\blender.exe
 ```
+
+History: BAT v1 used Poetry for dependency management. That has a big downside, namely that Poetry itself is made in Python. It also has its own dependencies, which can clash with the dependencies of the project it manages. This makes it cumbersome to work with. BAT v2 switched to [UV](https://docs.astral.sh/uv/). It is made in Rust, so is a standalone binary, without extra dependencies to manage, and is much faster than Poetry.
 
 ## Type checking
 

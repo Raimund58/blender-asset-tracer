@@ -12,6 +12,9 @@ dev = [
     "ruff>=0.15.0,<0.16",
 ]
 
+[tool.setuptools]
+packages = ["blender_asset_tracer"]
+
 [tool.uv]
 default-groups = "all"
 

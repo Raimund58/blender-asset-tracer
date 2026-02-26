@@ -45,8 +45,6 @@ def main() -> NoReturn:
         exit=False,
         argv=[THIS_SCRIPT_PATH.name, *argv],
     )
-    print("result:", repr(test_prog))
-
     tracemalloc.take_snapshot()
 
     if not test_prog.result.wasSuccessful():

@@ -3,7 +3,7 @@
 """
 To run:
 
-$ blender -q -b batter-tests/root/scene.blend -P list.py
+$ blender -q -b tests/blendfiles/root/scene.blend -P list.py
 """
 
 from __future__ import annotations
@@ -18,13 +18,13 @@ except ImportError:
     print(f"Run as: blender -q -b file.blend -P {Path(__file__).name}")
     raise SystemExit(1)
 
-# Ensure Batter can be imported, even when it's not installed as package.
+# Ensure BAT can be imported, even when it's not installed as package.
 _my_dir = Path(__file__).absolute().parent
 if str(_my_dir) not in sys.path:
     sys.path.append(str(_my_dir))
 
 
-from batter import file_usage
+from blender_asset_tracer import file_usage
 
 ANSI_REWRITING = 37
 ANSI_RELOCATING = 93

@@ -4,7 +4,7 @@
 """
 Python script for path rewriting, run in a background Blender process.
 
-See `batter/path_rewriting_process.py` for the code that runs in the main
+See `blender_asset_tracer/path_rewriting_process.py` for the code that runs in the main
 process, and manages this background process.
 """
 
@@ -19,13 +19,17 @@ from pathlib import Path
 
 _logger = logging.getLogger(__name__)
 
-# Ensure Batter can be imported, even when it's not installed as package.
-_batter_parent_dir = Path(__file__).resolve().parent.parent
-if str(_batter_parent_dir) not in sys.path:
-    sys.path.append(str(_batter_parent_dir))
+# Ensure BAT can be imported, even when it's not installed as package.
+_bat_parent_dir = Path(__file__).resolve().parent.parent
+if str(_bat_parent_dir) not in sys.path:
+    sys.path.append(str(_bat_parent_dir))
 
-from batter import path_rewriting
-from batter.path_rewriting_process import PipeMessage, PipeMsgType, RewriteRequest
+from blender_asset_tracer import path_rewriting
+from blender_asset_tracer.path_rewriting_process import (
+    PipeMessage,
+    PipeMsgType,
+    RewriteRequest,
+)
 
 type MessageQueue = queue.Queue[PipeMessage]
 type RewriteQueue = queue.Queue[RewriteRequest]

@@ -5,11 +5,11 @@ To test:
 
 Assumes the current working directory is the project root:
 
-$ blender -q -b batter-tests/root/scene.blend -P pack.py -- target/directory
+$ blender -q -b tests/blendfiles/root/scene.blend -P pack.py -- target/directory
 
 Explicitly provide a root path:
 
-$ blender -q -b batter-tests/root/scene.blend -P pack.py -- -r /some/other/root target/directory
+$ blender -q -b tests/blendfiles/root/scene.blend -P pack.py -- -r /some/other/root target/directory
 
 """
 
@@ -20,14 +20,17 @@ import shutil
 import sys
 from pathlib import Path, PurePath
 
-# Ensure Batter can be imported, even when it's not installed as package.
+# Ensure BAT can be imported, even when it's not installed as package.
 _my_dir = Path(__file__).resolve().parent
 if str(_my_dir) not in sys.path:
     sys.path.append(str(_my_dir))
 
 # E402: Import not at top of file, but has to be below the modification sys.path.
-from batter import file_usage, path_rewriting  # noqa: E402
-from batter.path_rewriting_process import BackgroundRewriter, RewriteRequest
+from blender_asset_tracer import file_usage, path_rewriting  # noqa: E402
+from blender_asset_tracer.path_rewriting_process import (
+    BackgroundRewriter,
+    RewriteRequest,
+)
 
 
 @dataclasses.dataclass

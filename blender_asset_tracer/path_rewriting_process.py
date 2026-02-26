@@ -55,8 +55,8 @@ script_parent_dir = Path(__file__).resolve().parent.parent
 worker_start_script = """
 import sys
 sys.path.append({!r})
-import batter.path_rewriting_worker
-batter.path_rewriting_worker.main()
+import blender_asset_tracer.path_rewriting_worker
+blender_asset_tracer.path_rewriting_worker.main()
 """.format(str(script_parent_dir))
 
 

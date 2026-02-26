@@ -4,7 +4,7 @@ from pathlib import Path, PurePath
 
 import bpy  # pyright: ignore[reportMissingImports]
 
-from batter import file_usage
+from blender_asset_tracer import file_usage
 
 _my_dir = Path(__file__).resolve().parent
 blendfiles = _my_dir / "blendfiles"

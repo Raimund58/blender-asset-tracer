@@ -1,6 +1,6 @@
 [project]
-name = "batter"
-version = "1.0"
+name = "blender-asset-tracer"
+version = "2.0-alpha0"
 description = "Better version of BAT"
 authors = [{ name = "Sybren A. Stüvel", email = "sybren@blender.org" }]
 requires-python = "==3.13.*"
@@ -42,7 +42,7 @@ target-version = "py313"
 # McCabe complexity (`C901`) by default.
 lint.select = ["E4", "E7", "E9", "F", "W", "C901"]
 lint.ignore = [
-# Import not at top of file. Batter needs to add to sys.path before importing.
+# Import not at top of file. BAT needs to add to sys.path before importing.
 "E402"
 ]
 

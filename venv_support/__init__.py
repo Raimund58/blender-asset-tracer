@@ -47,8 +47,9 @@ def _reactivate_venv() -> None:
     print(f"Reactivating virtualenv: {venv_path}")
 
     # Add the virtual environments libraries.
-    lib_dirs = venv_path.rglob("lib/*/site-packages")
-    for lib_dir in lib_dirs:
+    lib_dirs_posix = list(venv_path.rglob("lib/*/site-packages"))
+    lib_dirs_windows = list(venv_path.rglob("Lib/site-packages"))
+    for lib_dir in lib_dirs_posix + lib_dirs_windows:
         site.addsitedir(str(lib_dir))
 
 

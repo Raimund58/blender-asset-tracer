@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Blender Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 import unittest
 from pathlib import Path, PurePath
 
@@ -141,7 +144,12 @@ class PathsOutsideProjectsTest(unittest.TestCase):
         # - blender/nodes
         # - common/assets
         # - pro/assets
-        repo = fu.FileDependencyRepository(root_path=Path("/nothing/is/in/the/root"))
+
+        # The root path MUST be an absolute path. Starting with a slash is not
+        # enough on Windows, so prefix the anchor of this Python file, to ensure
+        # a valid drive letter.
+        root_path = Path(blendfiles.anchor) / "nothing/is/in/the/root"
+        repo = fu.FileDependencyRepository(root_path)
         for path in self.paths:
             repo.add_file(path, used_by_library=None)
 

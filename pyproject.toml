@@ -28,7 +28,7 @@ disable_error_code = "import-untyped"
 files = ["."]
 # Ignore files in directories with ___ in their name. This is just a way to hide
 # things from mypy.
-exclude = "___|^docs/"
+exclude = "___|^docs/|/2D_Animation"
 strict = true
 
 [[tool.mypy.overrides]]

@@ -74,14 +74,23 @@ class FileInfo:
 class FileDependencyRepository:
     """Collection of FileInfo objects for each file."""
 
-    # The absolute root path of the project. This is used to determine whether relocation is needed or not.
+    # The absolute root path of the project. This is used to determine whether
+    # relocation is needed or not.
     root_path: Path
+
+    # Absolute path of the blend file this entire FileDependencyRepository was
+    # created for. This can be used to look up its info in file_infoes.
+    packed_source_file: Path = Path()
 
     # Mapping from absolute path to FileInfo.
     file_infoes: dict[Path, FileInfo] = dataclasses.field(default_factory=dict)
 
     def __post_init__(self) -> None:
         assert self.root_path.is_absolute()
+
+    def source_file_info(self) -> FileInfo:
+        """Get the FileInfo for the currently-open blend file."""
+        return self.file_infoes[self.packed_source_file]
 
     def add_file(self, abspath: Path, *, used_by_library: BlendFile) -> FileInfo:
         """Add a file to the repository.
@@ -158,7 +167,9 @@ def determine_dependencies(
     """
 
     # Add the current blend file itself.
-    deps_repo.add_file(library_abspath(None), used_by_library=None)
+    source_file = library_abspath(None)
+    deps_repo.packed_source_file = source_file
+    deps_repo.add_file(source_file, used_by_library=None)
 
     # Step 1: find all inter-blendfile relations.
     for used_id, ids_using_some_id in bpy.data.user_map().items():

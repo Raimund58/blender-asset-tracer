@@ -61,6 +61,7 @@ class FileUsageTests(unittest.TestCase):
 
         expect_repo = file_usage.FileDependencyRepository(
             root_path=blendfiles,
+            packed_source_file=infile,
             file_infoes={
                 blendfiles / "subdir/image_sequence_dir_up.blend": file_usage.FileInfo(
                     relpath_in_pack=PurePath("subdir/image_sequence_dir_up.blend"),
@@ -105,6 +106,7 @@ class FileUsageTests(unittest.TestCase):
 
         expect_repo = file_usage.FileDependencyRepository(
             root_path=pack_root,
+            packed_source_file=infile,
             file_infoes={
                 pack_root / "v01_UDIM_BAT_debugging.blend": file_usage.FileInfo(
                     relpath_in_pack=PurePath("v01_UDIM_BAT_debugging.blend"),
@@ -145,6 +147,7 @@ class PackedAssetsTest(unittest.TestCase):
         # Only expect the input file, and nothing more.
         expect_repo = file_usage.FileDependencyRepository(
             root_path=blendfiles,
+            packed_source_file=infile,
             file_infoes={
                 blendfiles / "packed_assets.blend": file_usage.FileInfo(
                     relpath_in_pack=PurePath("packed_assets.blend"),

@@ -188,9 +188,12 @@ def _compute_ophash(blendfile: Path, file_info: file_usage.FileInfo) -> str:
     file_hash: str = hash_service.get_hash(blendfile, _hash_method)
 
     # The file's `relpath_in_pack` is also important, as that determines the
-    # relative paths to the files. The filename doesn't matter, only the
-    # directory, hence the `.parent`. This way, the cached blend file is still
-    # good when the file gets renamed.
+    # relative paths to the files. The destination paths of the rewrite rules
+    # are always relative to the pack root, and so they don't change when the
+    # blend file itself is moved (hence their hash stays the same).
+    #
+    # The filename doesn't matter, only the directory, hence the `.parent`. This
+    # way the cached blend file is still good when the file gets renamed.
     directory_in_pack = str(file_info.relpath_in_pack.parent)
 
     # Sort the rewrite rules for reproducibility. The POSIX notation is used

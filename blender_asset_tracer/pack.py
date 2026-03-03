@@ -33,6 +33,9 @@ class BATPackReporter(Protocol):
     TODO: include a way for Flamenco to abort the packing process.
     """
 
+    def on_error(self, errormsg: str) -> None:
+        pass
+
     def on_copy_start(self, src: Path, dest: PurePath) -> None:
         pass
 

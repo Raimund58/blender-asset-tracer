@@ -177,6 +177,16 @@ class BATPacker:
 
         return self.state != BATPackState.DONE
 
+    def abort(self) -> None:
+        """Abort the packing process.
+
+        After this 'emergency shutdown', this BATPacker should not be used.
+        """
+        if self.rewriter:
+            self.rewriter.shutdown()
+            self.rewriter = None
+        self.state = BATPackState.DONE
+
     def source_file_info(self) -> file_usage.FileInfo:
         """Get the FileInfo for the currently-open blend file."""
         assert self.deps_repo is not None, "call .start() first"

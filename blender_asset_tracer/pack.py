@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import collections
-import enum
 import functools
 import shutil
 from pathlib import Path, PurePath
@@ -55,11 +54,12 @@ class BATPackReporter(Protocol):
         pass
 
 
-# FileTransferFunc performs a single file transfer.
-#
-# It is responsible itself for tracking which files need transferring.
-# It should return True if more work is to be done, and False once everything is copied.
-type FileTransferFunc = Callable[[BATPacker], bool]
+class FileTransferProtocol(Protocol):
+    def start(self, batpacker: BATPacker) -> None:
+        pass
+
+    def step(self) -> None:
+        pass
 
 
 class BATPacker:
@@ -71,7 +71,7 @@ class BATPacker:
     The class is structured as a state machine, which can be started and
     subsequently updated until it indicates that the work is done.
 
-    Each 'batpacker.update()' call performs a single step in the process. The
+    Each 'batpacker.step()' call performs a single step in the process. The
     code using this class is responsible for calling this function often enough.
     """
 
@@ -105,7 +105,7 @@ class BATPacker:
     # for Shaman server transfers).
     #
     # This MUST be given if pack_target_dir is None.
-    file_transfer_func: FileTransferFunc | None
+    file_transfer: FileTransferProtocol | None
 
     executor: QueueingExecutor
 
@@ -116,11 +116,11 @@ class BATPacker:
         reporter: BATPackReporter,
         *,
         pack_target_dir: Path | None = None,
-        file_transfer_func: FileTransferFunc | None = None,
+        file_transfer: FileTransferProtocol | None = None,
     ) -> None:
-        if (pack_target_dir is None) == (file_transfer_func is None):
+        if (pack_target_dir is None) == (file_transfer is None):
             raise ValueError(
-                "pack_target_dir or file_transfer_func MUST be given, but not both"
+                "pack_target_dir or file_transfer MUST be given, but not both"
             )
         self.project_root = project_root
         self.options = options
@@ -128,7 +128,7 @@ class BATPacker:
         self.deps_repo = None
         self.rewriter = None
         self.pack_target_dir = pack_target_dir
-        self.file_transfer_func = file_transfer_func
+        self.file_transfer = file_transfer
         self.executor = QueueingExecutor()
 
     def start(self) -> None:
@@ -178,7 +178,7 @@ class BATPacker:
         if not blendfiles_to_rewrite:
             # Nothing to rewrite, so skip the creation of the rewriter process,
             # and go straight to the file copying.
-            self.executor.queue(self._step_copy_files)
+            self.executor.queue(self._step_copy_files_start)
             return
 
         self.executor.queue(
@@ -192,18 +192,24 @@ class BATPacker:
         if self.rewriter.all_rewrites_done:
             self.rewriter.shutdown()
             self.rewriter = None
-            self.executor.queue(self._step_copy_files)
+            self.executor.queue(self._step_copy_files_start)
             return
 
         self.rewriter.update()
         self.executor.queue(self._step_rewrite_check)
 
+    def _step_copy_files_start(self) -> None:
+        """If there is a file transfer object given, start it up."""
+        if self.file_transfer:
+            self.file_transfer.start(self)
+        self.executor.queue(self._step_copy_files)
+
     def _step_copy_files(self) -> None:
         """Calls into the copy callback to perform the file transfer."""
-        if self.file_transfer_func is None:
-            has_more_work = self._default_file_transfer_func()
+        if self.file_transfer:
+            has_more_work = self.file_transfer.step()
         else:
-            has_more_work = self.file_transfer_func(self)
+            has_more_work = self._default_file_transfer_func()
 
         if has_more_work:
             self.executor.queue(self._step_copy_files)

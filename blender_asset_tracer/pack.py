@@ -40,6 +40,9 @@ class BATPackReporter(Protocol):
     def on_copy_done(self, src: Path, dest: PurePath) -> None:
         pass
 
+    def on_copy_error(self, src: Path, dest: PurePath, errormsg: str) -> None:
+        pass
+
     def on_rewrite_error(
         self, blendfile: Path, path_in_pack: PurePath, errormsg: str
     ) -> None:
@@ -256,14 +259,21 @@ class BATPacker:
             self.reporter.on_missing_file(source_path, target_relpath)
             return True  # There may be more files, so keep going.
 
-        # Copy the file.
         target_abspath = self.pack_target_dir / target_relpath
-        self.reporter.on_copy_start(source_path, target_abspath)
-        target_abspath.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, target_abspath)
-        self.reporter.on_copy_done(source_path, target_abspath)
 
-        return True
+        # Copy the file.
+        self.reporter.on_copy_start(source_path, target_abspath)
+        try:
+            target_abspath.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, target_abspath)
+        except Exception as ex:
+            self.reporter.on_copy_error(
+                source_path, target_abspath, f"{type(ex).__name__}: {ex!s}"
+            )
+            return True  # There may be more files, so keep going.
+
+        self.reporter.on_copy_done(source_path, target_abspath)
+        return True  # There may be more files, so keep going.
 
     def _update_done(self) -> None:
         """Doesn't do anything, as the work is done."""

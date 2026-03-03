@@ -5,20 +5,20 @@
 
 from __future__ import annotations
 
-import shutil
-
-__all__ = (
-    "BATPacker",
-    "BATPackReporter",
-    "BATPackState",
-    "CopyFileFunc",
-)
-
+import collections
 import enum
+import functools
+import shutil
 from pathlib import Path, PurePath
 from typing import Callable, Protocol, TypeAlias
 
 from . import file_usage, path_rewriting, path_rewriting_process
+
+__all__ = (
+    "BATPacker",
+    "BATPackReporter",
+    "CopyFileFunc",
+)
 
 # Function that takes arguments (source, destination) and copies a single file.
 #
@@ -55,13 +55,6 @@ class BATPackReporter(Protocol):
         pass
 
 
-class BATPackState(enum.Enum):
-    STARTING = 1
-    REWRITING = 2
-    COPYING_FILES = 3
-    DONE = 4
-
-
 # FileTransferFunc performs a single file transfer.
 #
 # It is responsible itself for tracking which files need transferring.
@@ -82,7 +75,6 @@ class BATPacker:
     code using this class is responsible for calling this function often enough.
     """
 
-    state: BATPackState
     project_root: Path
     options: file_usage.Options
     reporter: BATPackReporter
@@ -93,10 +85,11 @@ class BATPacker:
     # This is only set after 'start()' is called.
     deps_repo: file_usage.FileDependencyRepository | None
 
-    # Set of files that need path rewriting before sending to the farm.
-    blendfiles_to_rewrite: set[Path]
-
     # Path rewriter process. Only created when needed.
+    #
+    # This is stored as a field here, instead of passed as a parameter to those
+    # functions that use it, because the abort() function needs to be able to
+    # find it, and shut it down.
     rewriter: path_rewriting_process.BackgroundRewriter | None
 
     # Target path to write the BAT pack to.
@@ -114,10 +107,7 @@ class BATPacker:
     # This MUST be given if pack_target_dir is None.
     file_transfer_func: FileTransferFunc | None
 
-    # Mapping from the BAT packer state to the corresponding update function.
-    # These functions can return a new state to go to, or None if no state
-    # change is needed.
-    _state_functions: dict[BATPackState, Callable[[], BATPackState | None]]
+    executor: QueueingExecutor
 
     def __init__(
         self,
@@ -132,50 +122,32 @@ class BATPacker:
             raise ValueError(
                 "pack_target_dir or file_transfer_func MUST be given, but not both"
             )
-        self.state = BATPackState.STARTING
         self.project_root = project_root
         self.options = options
         self.reporter = reporter
         self.deps_repo = None
-        self.blendfiles_to_rewrite = set()
         self.rewriter = None
         self.pack_target_dir = pack_target_dir
         self.file_transfer_func = file_transfer_func
-        self._state_functions = {
-            BATPackState.STARTING: self._update_starting,
-            BATPackState.REWRITING: self._update_rewriting,
-            BATPackState.COPYING_FILES: self._update_copying_files,
-            BATPackState.DONE: self._update_done,
-        }
+        self.executor = QueueingExecutor()
 
     def start(self) -> None:
-        """Perform initial investigation.
+        """Perform initial investigation."""
 
-        This does not copy anything yet, just determines what needs copying/rewriting.
-        """
-        # Investigate the currently-open blend file, and figure out the dependencies.
         self.deps_repo = file_usage.dependencies_of_current_blendfile(
             self.project_root, self.options
         )
+        self.executor.queue(self._step_rewrite_determine_files)
 
-        # Check which files actually need rewriting, and which ones are already cached.
-        self.blendfiles_to_rewrite = path_rewriting.determine_files_to_rewrite(
-            self.deps_repo
-        )
-
-    def update(self) -> bool:
+    def step(self) -> bool:
         """Perform a step of the packing process.
 
         Returns whether there are more steps to do (True) or the process is done (False).
         """
-        assert self.deps_repo, "call .start() first"
-
-        func = self._state_functions[self.state]
-        new_state = func()
-        if new_state is not None:
-            self.state = new_state
-
-        return self.state != BATPackState.DONE
+        if self.executor.is_done:
+            return False
+        self.executor.run_step()
+        return not self.executor.is_done
 
     def abort(self) -> None:
         """Abort the packing process.
@@ -185,38 +157,48 @@ class BATPacker:
         if self.rewriter:
             self.rewriter.shutdown()
             self.rewriter = None
-        self.state = BATPackState.DONE
+        self.executor.clear()
+
+    @property
+    def is_done(self) -> bool:
+        return self.executor.is_done
 
     def source_file_info(self) -> file_usage.FileInfo:
         """Get the FileInfo for the currently-open blend file."""
         assert self.deps_repo is not None, "call .start() first"
         return self.deps_repo.source_file_info()
 
-    def _update_starting(self) -> BATPackState:
-        """Determine the first state that actually does something."""
-        if self.blendfiles_to_rewrite:
-            return BATPackState.REWRITING
-        return BATPackState.COPYING_FILES
+    def _step_rewrite_determine_files(self) -> None:
+        """Check which files actually need rewriting, and which ones are already cached."""
+        assert self.deps_repo is not None
+        blendfiles_to_rewrite = path_rewriting.determine_files_to_rewrite(
+            self.deps_repo
+        )
 
-    def _update_rewriting(self) -> BATPackState | None:
-        """Performs a path-rewriting step.
+        if not blendfiles_to_rewrite:
+            # Nothing to rewrite, so skip the creation of the rewriter process,
+            # and go straight to the file copying.
+            self.executor.queue(self._step_copy_files)
+            return
 
-        This can be starting the path rewriter sub-process, updating the
-        communication with that sub-process, or shutting it down again.
-        """
-        if self.rewriter is None:
-            # Rewrite step 1: create the rewriter process & queue up files.
-            self._path_rewriter_create()
-            return None
-        if not self.rewriter.all_rewrites_done:
-            # Rewrite step 2: update until done.
-            self.rewriter.update()
-            return None
-        # Rewrite step 3: shutdown and move to next state.
-        self.rewriter.shutdown()
-        return BATPackState.COPYING_FILES
+        self.executor.queue(
+            functools.partial(self._path_rewriter_create, blendfiles_to_rewrite)
+        )
+        self.executor.queue(self._step_rewrite_check)
 
-    def _update_copying_files(self) -> BATPackState | None:
+    def _step_rewrite_check(self) -> None:
+        assert self.rewriter is not None, "call _path_rewriter_create() first"
+
+        if self.rewriter.all_rewrites_done:
+            self.rewriter.shutdown()
+            self.rewriter = None
+            self.executor.queue(self._step_copy_files)
+            return
+
+        self.rewriter.update()
+        self.executor.queue(self._step_rewrite_check)
+
+    def _step_copy_files(self) -> None:
         """Calls into the copy callback to perform the file transfer."""
         if self.file_transfer_func is None:
             has_more_work = self._default_file_transfer_func()
@@ -224,8 +206,7 @@ class BATPacker:
             has_more_work = self.file_transfer_func(self)
 
         if has_more_work:
-            return None
-        return BATPackState.DONE
+            self.executor.queue(self._step_copy_files)
 
     def all_files_to_copy(self) -> dict[Path, file_usage.FileInfo]:
         """Get the set of all files to copy.
@@ -285,11 +266,7 @@ class BATPacker:
         self.reporter.on_copy_done(source_path, target_abspath)
         return True  # There may be more files, so keep going.
 
-    def _update_done(self) -> None:
-        """Doesn't do anything, as the work is done."""
-        return None
-
-    def _path_rewriter_create(self) -> None:
+    def _path_rewriter_create(self, blendfiles_to_rewrite: set[Path]) -> None:
         """Create the path rewriter sub-process and queue up its work."""
         assert self.deps_repo is not None, "call .start() first"
         assert self.rewriter is None
@@ -318,7 +295,7 @@ class BATPacker:
         self.rewriter = bgrewriter
 
         # Queue up all files that need rewriting.
-        for abs_path in self.blendfiles_to_rewrite:
+        for abs_path in blendfiles_to_rewrite:
             file_info = self.deps_repo.file_infoes[abs_path]
             assert file_info.relpath_in_pack is not None
             assert file_info.rewritten_file_path is not None
@@ -338,3 +315,32 @@ class BATPacker:
             )
 
         # This is enough work for the 'create' step.
+
+
+class QueueingExecutor:
+    """Simple work queue.
+
+    Queue up work (a simple callable), and call `run_step()` to run the
+    queued callables in order.
+    """
+
+    type WorkFunc = Callable[[], None]
+    _queue: collections.deque[WorkFunc]
+
+    def __init__(self) -> None:
+        self._queue = collections.deque()
+
+    def queue(self, workfunc: WorkFunc) -> None:
+        self._queue.append(workfunc)
+
+    @property
+    def is_done(self) -> bool:
+        return not bool(self._queue)
+
+    def run_step(self) -> None:
+        assert not self.is_done
+        workfunc = self._queue.popleft()
+        workfunc()
+
+    def clear(self) -> None:
+        self._queue.clear()

@@ -42,6 +42,13 @@ class Options:
 
 @dataclasses.dataclass
 class FileInfo:
+    # The absolute path of the file described by this FileInfo.
+    #
+    # This is also used as the key in FileDependencyRepository.file_infoes. The
+    # advantage of also storing it here, is that an instance of FileInfo is then
+    # enough to know all the relevant info about this file.
+    source_path: Path
+
     # Indicator that this file needs relocation.
     #
     # `relpath_in_pack` is only allowed to be None if this is True.
@@ -68,6 +75,15 @@ class FileInfo:
 
     # Absolute path of the file's location after it had its paths rewritten.
     rewritten_file_path: Path | None = None
+
+    @property
+    def path_to_pack(self) -> Path:
+        """Return the file to include in the BAT pack.
+
+        If the file needed path rewriting, this is the path of the rewritten
+        file. Otherwise this is just the source file.
+        """
+        return self.rewritten_file_path or self.source_path
 
 
 @dataclasses.dataclass
@@ -112,7 +128,7 @@ class FileDependencyRepository:
         # Construct all the file info. Most of this code just depends on the
         # file's path and the root path, which means it doesn't have to be
         # repeated for every ID that uses it.
-        file_info = FileInfo()
+        file_info = FileInfo(source_path=abspath)
         self.file_infoes[abspath] = file_info
 
         # Remember that this library blend file references this asset file.

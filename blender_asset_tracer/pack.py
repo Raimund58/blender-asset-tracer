@@ -37,6 +37,17 @@ class BATPackReporter(Protocol):
         pass
 
     def on_copy_start(self, src: Path, dest: PurePath) -> None:
+        """Copying of the file starts.
+
+        This may be called multiple times for a single file. For example, when
+        uploading via HTTP to a Shaman server, the upload can fail and get
+        retried.
+
+        The on_copy_done() and on_copy_error() functions will only be called
+        after the last attempt at uploading the file. This means that reported
+        success/failure can be relied on to be that, and not some intermediate
+        state.
+        """
         pass
 
     def on_copy_done(self, src: Path, dest: PurePath) -> None:
@@ -226,7 +237,7 @@ class BATPacker:
         assert self.deps_repo is not None, "call .start() first"
         return self.deps_repo.file_infoes
 
-    def pop_file_to_copy(self) -> tuple[Path, file_usage.FileInfo] | None:
+    def pop_file_to_copy(self) -> file_usage.FileInfo | None:
         """Obtain the next file to transfer.
 
         File Transfer Functions that work on a file-by-file basis can use this
@@ -234,45 +245,42 @@ class BATPacker:
         """
         assert self.deps_repo is not None, "call .start() first"
         try:
-            source_path, file_info = self.deps_repo.file_infoes.popitem()
+            _, file_info = self.deps_repo.file_infoes.popitem()
         except KeyError:
             return None
-        return source_path, file_info
+        return file_info
 
     def _default_file_transfer_func(self) -> bool:
         """Copy a single file, return whether more files may need copying."""
         assert self.pack_target_dir is not None
 
-        next_file = self.pop_file_to_copy()
-        if next_file is None:
+        file_info = self.pop_file_to_copy()
+        if file_info is None:
             return False  # No more files to copy, the work is done.
 
-        source_path, file_info = next_file
-
-        if file_info.rewritten_file_path is not None:
-            source_path = file_info.rewritten_file_path
+        path_to_pack = file_info.path_to_pack
 
         target_relpath = file_info.relpath_in_pack
         assert target_relpath is not None
 
-        if not source_path.exists():
-            self.reporter.on_missing_file(source_path, target_relpath)
+        if not path_to_pack.exists():
+            self.reporter.on_missing_file(path_to_pack, target_relpath)
             return True  # There may be more files, so keep going.
 
         target_abspath = self.pack_target_dir / target_relpath
 
         # Copy the file.
-        self.reporter.on_copy_start(source_path, target_abspath)
+        self.reporter.on_copy_start(path_to_pack, target_abspath)
         try:
             target_abspath.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_path, target_abspath)
+            shutil.copy2(path_to_pack, target_abspath)
         except Exception as ex:
             self.reporter.on_copy_error(
-                source_path, target_abspath, f"{type(ex).__name__}: {ex!s}"
+                path_to_pack, target_abspath, f"{type(ex).__name__}: {ex!s}"
             )
             return True  # There may be more files, so keep going.
 
-        self.reporter.on_copy_done(source_path, target_abspath)
+        self.reporter.on_copy_done(path_to_pack, target_abspath)
         return True  # There may be more files, so keep going.
 
     def _path_rewriter_create(self, blendfiles_to_rewrite: set[Path]) -> None:

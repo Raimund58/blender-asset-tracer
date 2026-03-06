@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import collections
 import functools
+import logging
 import shutil
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath
 from typing import Callable, Protocol, TypeAlias
 
 from . import file_usage, path_rewriting, path_rewriting_process
@@ -25,6 +26,8 @@ __all__ = (
 # what to do with it (prefix it with a local path, send it to the Shaman server
 # as-is, etc.).
 CopyFileFunc: TypeAlias = Callable[[Path, PurePath], None]
+
+logger = logging.getLogger(__name__)
 
 
 class BATPackReporter(Protocol):
@@ -69,11 +72,9 @@ class BATPackReporter(Protocol):
 
 
 class FileTransferProtocol(Protocol):
-    def start(self, batpacker: BATPacker) -> None:
-        pass
-
-    def step(self) -> None:
-        pass
+    def start(self, batpacker: BATPacker) -> None: ...
+    def step(self) -> bool: ...
+    def blendfile_location_in_pack(self) -> PurePosixPath: ...
 
 
 class BATPacker:
@@ -181,6 +182,16 @@ class BATPacker:
         """Get the FileInfo for the currently-open blend file."""
         assert self.deps_repo is not None, "call .start() first"
         return self.deps_repo.source_file_info()
+
+    def blendfile_location_in_pack(self) -> PurePosixPath:
+        """Get the path of the packed blendfile, relative to the pack root."""
+        if self.file_transfer:
+            return self.file_transfer.blendfile_location_in_pack()
+
+        assert self.deps_repo is not None
+        source_file_info = self.deps_repo.source_file_info()
+        assert source_file_info.relpath_in_pack is not None
+        return PurePosixPath(source_file_info.relpath_in_pack.as_posix())
 
     def _step_rewrite_determine_files(self) -> None:
         """Check which files actually need rewriting, and which ones are already cached."""
@@ -346,10 +357,15 @@ class QueueingExecutor:
     type WorkFunc = Callable[[], None]
     _queue: collections.deque[WorkFunc]
 
+    # Logging is commented out, because repr(workfunc) can get quite long.
+    _log: logging.Logger
+
     def __init__(self) -> None:
         self._queue = collections.deque()
+        self._log = logger.getChild(QueueingExecutor.__name__)
 
     def queue(self, workfunc: WorkFunc) -> None:
+        # self._log.debug("queueing %r", workfunc)
         self._queue.append(workfunc)
 
     @property
@@ -359,6 +375,7 @@ class QueueingExecutor:
     def run_step(self) -> None:
         assert not self.is_done
         workfunc = self._queue.popleft()
+        # self._log.debug("calling %r", workfunc)
         workfunc()
 
     def clear(self) -> None:

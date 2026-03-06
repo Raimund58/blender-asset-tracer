@@ -77,7 +77,7 @@ _mp_context = multiprocessing.get_context(method="spawn")
 class RewriteRequest:
     blendfile: Path
     # The path of this blendfile in the pack, relative to the pack's root:
-    path_in_pack: PurePath
+    relpath_in_pack: PurePath
     # Read-only version of the dictionary type RewriteRules.
     rewrite_rules: tuple[tuple[Path, PurePath], ...]
     save_to: Path
@@ -158,7 +158,7 @@ class BackgroundRewriter:
     def queue_rewrite(
         self,
         blendfile: Path,
-        path_in_pack: PurePath,
+        relpath_in_pack: PurePath,
         rewrite_rules: RewriteRules,
         save_to: Path,
         on_rewrite_done: RewriteDoneCallback | None = None,
@@ -179,7 +179,7 @@ class BackgroundRewriter:
 
         rewrite_request = RewriteRequest(
             blendfile=blendfile,
-            path_in_pack=path_in_pack,
+            relpath_in_pack=relpath_in_pack,
             rewrite_rules=tuple(rewrite_rules.items()),
             save_to=save_to,
         )

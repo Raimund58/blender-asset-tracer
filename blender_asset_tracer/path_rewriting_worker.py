@@ -127,7 +127,7 @@ def main_loop(
             # Do the actual path rewriting.
             path_rewriting.rewrite_file(
                 rewrite_request.blendfile,
-                rewrite_request.path_in_pack,
+                rewrite_request.relpath_in_pack,
                 rewrite_rules_as_dict,
                 rewrite_request.save_to,
             )

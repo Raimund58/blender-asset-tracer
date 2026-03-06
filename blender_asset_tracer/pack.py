@@ -57,14 +57,14 @@ class BATPackReporter(Protocol):
         pass
 
     def on_rewrite_error(
-        self, blendfile: Path, path_in_pack: PurePath, errormsg: str
+        self, blendfile: Path, relpath_in_pack: PurePath, errormsg: str
     ) -> None:
         pass
 
-    def on_rewrite_done(self, blendfile: Path, path_in_pack: PurePath) -> None:
+    def on_rewrite_done(self, blendfile: Path, relpath_in_pack: PurePath) -> None:
         pass
 
-    def on_missing_file(self, blendfile: Path, path_in_pack: PurePath) -> None:
+    def on_missing_file(self, blendfile: Path, relpath_in_pack: PurePath) -> None:
         pass
 
 
@@ -295,10 +295,12 @@ class BATPacker:
         ) -> None:
             if errormsg:
                 self.reporter.on_rewrite_error(
-                    request.blendfile, request.path_in_pack, errormsg
+                    request.blendfile, request.relpath_in_pack, errormsg
                 )
             else:
-                self.reporter.on_rewrite_done(request.blendfile, request.path_in_pack)
+                self.reporter.on_rewrite_done(
+                    request.blendfile, request.relpath_in_pack
+                )
 
         def on_callback_error(
             request: path_rewriting_process.RewriteRequest, errormsg: str, ex: Exception

@@ -72,6 +72,7 @@ class FileTransferProtocol(Protocol):
     def start(self, batpacker: BATPacker) -> None: ...
     def step(self) -> bool: ...
     def blendfile_location_in_pack(self) -> PurePosixPath: ...
+    def num_files_to_transfer(self) -> tuple[int, int]: ...
 
 
 class BATPacker:
@@ -127,6 +128,8 @@ class BATPacker:
 
     _is_aborted: bool
     _log: logging.Logger
+    _num_files_to_transfer_total: int
+    _num_files_to_transfer_done: int
 
     def __init__(
         self,
@@ -151,6 +154,8 @@ class BATPacker:
         self.executor = QueueingExecutor()
         self._is_aborted = False
         self._log = logger.getChild(BATPacker.__name__)
+        self._num_files_to_transfer_total = -1
+        self._num_files_to_transfer_done = 0
 
     def start(self) -> None:
         """Perform initial investigation."""
@@ -161,6 +166,7 @@ class BATPacker:
         self.deps_repo = file_usage.dependencies_of_current_blendfile(
             self.project_root, self.options
         )
+        self._num_files_to_transfer_total = len(self.deps_repo.file_infoes)
         self.queue(self._step_rewrite_determine_files)
 
     def step(self) -> bool:
@@ -227,6 +233,24 @@ class BATPacker:
         source_file_info = self.deps_repo.source_file_info()
         assert source_file_info.relpath_in_pack is not None
         return PurePosixPath(source_file_info.relpath_in_pack.as_posix())
+
+    def num_files_to_transfer(self) -> tuple[int, int]:
+        """Return the number of files that need to be transferred.
+
+        This is a tuple [total, done] with the total number of files to
+        transfer, and the number of transferred files so far.
+
+        Depending on the file transfer object, this may not be the full set of
+        dependencies (for example, Shaman doesn't transfer files that are
+        already on the farm).
+
+        The number may change during the packing process, as it takes time
+        for the Shaman protocol to get this information. Or some paths may
+        turn out to be multiple paths (UDIMs for example).
+        """
+        if self.file_transfer:
+            return self.file_transfer.num_files_to_transfer()
+        return self._num_files_to_transfer_total, self._num_files_to_transfer_done
 
     def _step_rewrite_determine_files(self) -> None:
         """Check which files actually need rewriting, and which ones are already cached."""
@@ -389,6 +413,7 @@ class BATPacker:
             return True  # There may be more files, so keep going.
 
         self.reporter.on_copy_done(path_to_pack, target_abspath)
+        self._num_files_to_transfer_done += 1
         return True  # There may be more files, so keep going.
 
 

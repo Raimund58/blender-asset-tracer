@@ -25,6 +25,7 @@ class PathRewritingTest(unittest.TestCase):
 
     def test_path_in_cache(self) -> None:
         file_info = file_usage.FileInfo(
+            source_path=self.blendfile,
             relpath_in_pack=PurePath("scene.blend"),
             rewrite_rules=self.rewrite_rules,
         )
@@ -39,6 +40,7 @@ class PathRewritingTest(unittest.TestCase):
 
     def test_ophash(self) -> None:
         file_info = file_usage.FileInfo(
+            source_path=self.blendfile,
             relpath_in_pack=PurePath("scene.blend"),
             rewrite_rules=self.rewrite_rules,
         )

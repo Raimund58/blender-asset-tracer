@@ -64,26 +64,32 @@ class FileUsageTests(unittest.TestCase):
             packed_source_file=infile,
             file_infoes={
                 blendfiles / "subdir/image_sequence_dir_up.blend": file_usage.FileInfo(
+                    source_path=blendfiles / "subdir/image_sequence_dir_up.blend",
                     relpath_in_pack=PurePath("subdir/image_sequence_dir_up.blend"),
                     references={None},
                 ),
                 blendfiles / "imgseq/000210.png": file_usage.FileInfo(
+                    source_path=blendfiles / "imgseq/000210.png",
                     relpath_in_pack=PurePath("imgseq/000210.png"),
                     references={None},
                 ),
                 blendfiles / "imgseq/000211.png": file_usage.FileInfo(
+                    source_path=blendfiles / "imgseq/000211.png",
                     relpath_in_pack=PurePath("imgseq/000211.png"),
                     references={None},
                 ),
                 blendfiles / "imgseq/000212.png": file_usage.FileInfo(
+                    source_path=blendfiles / "imgseq/000212.png",
                     relpath_in_pack=PurePath("imgseq/000212.png"),
                     references={None},
                 ),
                 blendfiles / "imgseq/000213.png": file_usage.FileInfo(
+                    source_path=blendfiles / "imgseq/000213.png",
                     relpath_in_pack=PurePath("imgseq/000213.png"),
                     references={None},
                 ),
                 blendfiles / "imgseq/000214.png": file_usage.FileInfo(
+                    source_path=blendfiles / "imgseq/000214.png",
                     relpath_in_pack=PurePath("imgseq/000214.png"),
                     references={None},
                 ),
@@ -109,10 +115,12 @@ class FileUsageTests(unittest.TestCase):
             packed_source_file=infile,
             file_infoes={
                 pack_root / "v01_UDIM_BAT_debugging.blend": file_usage.FileInfo(
+                    source_path=pack_root / "v01_UDIM_BAT_debugging.blend",
                     relpath_in_pack=PurePath("v01_UDIM_BAT_debugging.blend"),
                     references={None},
                 ),
                 pack_root / "cube_UDIM.color.<UDIM>.png": file_usage.FileInfo(
+                    source_path=pack_root / "cube_UDIM.color.<UDIM>.png",
                     relpath_in_pack=PurePath("cube_UDIM.color.<UDIM>.png"),
                     references={None},
                 ),
@@ -150,6 +158,7 @@ class PackedAssetsTest(unittest.TestCase):
             packed_source_file=infile,
             file_infoes={
                 blendfiles / "packed_assets.blend": file_usage.FileInfo(
+                    source_path=blendfiles / "packed_assets.blend",
                     relpath_in_pack=PurePath("packed_assets.blend"),
                     references={None},
                 ),

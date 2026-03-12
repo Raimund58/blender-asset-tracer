@@ -28,39 +28,47 @@ class FileUsageTest(unittest.TestCase):
         expected = {
             # The currently-open blend file itself:
             infile: fu.FileInfo(
+                source_path=infile,
                 needs_relocation=False,
                 relpath_in_pack=PurePath("scene.blend"),
                 references={None},
             ),
             # Library Blend files:
             root / "char/cube.blend": fu.FileInfo(
+                source_path=root / "char/cube.blend",
                 needs_relocation=False,
                 relpath_in_pack=PurePath("char/cube.blend"),
                 references={None},
             ),
             root / "char/little_cube.blend": fu.FileInfo(
+                source_path=root / "char/little_cube.blend",
                 needs_relocation=False,
                 relpath_in_pack=PurePath("char/little_cube.blend"),
                 references={None},
             ),
             root.parent / "material_textures.blend": fu.FileInfo(
+                source_path=root.parent / "material_textures.blend",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
                 references={libs["cube.blend"], libs["little_cube.blend"]},
             ),
             # Other assets:
             root.parent / "textures/Bricks/brick_dotted_04-bump.jpg": fu.FileInfo(
+                source_path=root.parent / "textures/Bricks/brick_dotted_04-bump.jpg",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
                 references={libs["material_textures.blend"]},
             ),
             root.parent / "textures/Bricks/brick_dotted_04-color.jpg": fu.FileInfo(
+                source_path=root.parent / "textures/Bricks/brick_dotted_04-color.jpg",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
                 references={libs["material_textures.blend"]},
             ),
             root.parent
             / "textures/Textures/Buildings/buildings_roof_04-color.jpg": fu.FileInfo(
+                source_path=root.parent
+                / "textures/Textures/Buildings/buildings_roof_04-color.jpg",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
                 references={libs["material_textures.blend"]},
@@ -82,12 +90,14 @@ class FileUsageTest(unittest.TestCase):
         expected = {
             # The currently-open blend file itself:
             infile: fu.FileInfo(
+                source_path=infile,
                 needs_relocation=False,
                 relpath_in_pack=PurePath("absolute_path.blend"),
                 references={None},
             ),
             # The only asset referred to by relative path:
             blendfiles / "textures/Bricks/brick_dotted_04-color.jpg": fu.FileInfo(
+                source_path=blendfiles / "textures/Bricks/brick_dotted_04-color.jpg",
                 needs_relocation=False,
                 relpath_in_pack=PurePath("textures/Bricks/brick_dotted_04-color.jpg"),
                 references={None},

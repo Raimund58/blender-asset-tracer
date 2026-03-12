@@ -309,7 +309,7 @@ class BackgroundRewriter:
         # getting stuck on a send() call.
         self._logger.debug("processing any pending updates")
         start_wait_time = time.monotonic()
-        max_wait_duration = 5.0  # Seconds
+        max_wait_duration = 20.0  # Seconds
         while self.is_subprocess_alive:
             if time.monotonic() - start_wait_time > max_wait_duration:
                 self._logger.error("timeout waiting for background process top stop")

@@ -90,7 +90,13 @@ class PipeMsgType(enum.Enum):
     SHUTDOWN = "shutdown"
     """Payload: None"""
 
-    REPORT = "report"
+    REPORT_START = "report-start"
+    """Payload: RewriteRequest"""
+
+    REPORT_DONE = "report-done"
+    """Payload: RewriteRequest"""
+
+    REPORT_ERROR = "report-error"
     """Payload: (RewriteRequest, error message: str)"""
 
 
@@ -118,14 +124,23 @@ class BackgroundRewriter:
     _connection: multiprocessing.connection.Connection
 
     # Keep track of which callback to call on the completion of which rewrite request.
-    type RewriteDoneCallback = Callable[[RewriteRequest, str], None]
-    """Callback function that takes (request, error message).
+    type FileStartCallback = Callable[[RewriteRequest], None]
+    type FileDoneCallback = Callable[[RewriteRequest], None]
+    type FileErrorCallback = Callable[[RewriteRequest, str], None]
+    _on_start_callbacks: dict[RewriteRequest, FileStartCallback]
+    _on_done_callbacks: dict[RewriteRequest, FileDoneCallback]
+    _on_error_callbacks: dict[RewriteRequest, FileErrorCallback]
 
-    The error message is an empty string on success.
-    """
-    _on_rewrite_done_callbacks: dict[RewriteRequest, RewriteDoneCallback]
-
-    type OnCallbackErrorCallback = Callable[[RewriteRequest, str, Exception], None]
+    type RewriteCallback = FileStartCallback | FileDoneCallback | FileErrorCallback
+    type OnCallbackErrorCallback = Callable[
+        [
+            RewriteRequest,
+            Exception,  # The exception the callback raised.
+            RewriteCallback,  # The callback that failed.
+            tuple[Any, ...],  # Callback's extra args after the rewrite request.
+        ],
+        None,
+    ]
     _on_callback_error: OnCallbackErrorCallback
 
     _bgprocess: subprocess.Popen[bytes] | None
@@ -145,7 +160,9 @@ class BackgroundRewriter:
             "on_rewrite_done" callback of a queued download raises an exception.
         """
 
-        self._on_rewrite_done_callbacks = {}
+        self._on_start_callbacks = {}
+        self._on_done_callbacks = {}
+        self._on_error_callbacks = {}
         self._on_callback_error = on_callback_error
 
         self._shutdown_event = _mp_context.Event()
@@ -154,6 +171,7 @@ class BackgroundRewriter:
         self._reporters = [self]
         self._bgprocess = None
         self._num_pending_rewrites = 0
+        self._logger = logger.getChild(BackgroundRewriter.__name__)
 
     def queue_rewrite(
         self,
@@ -161,7 +179,9 @@ class BackgroundRewriter:
         relpath_in_pack: PurePath,
         rewrite_rules: RewriteRules,
         save_to: Path,
-        on_rewrite_done: RewriteDoneCallback | None = None,
+        on_file_start: FileStartCallback | None = None,
+        on_file_done: FileDoneCallback | None = None,
+        on_file_error: FileErrorCallback | None = None,
     ) -> None:
         """Queue up a path rewrite operation."""
 
@@ -183,8 +203,12 @@ class BackgroundRewriter:
             rewrite_rules=tuple(rewrite_rules.items()),
             save_to=save_to,
         )
-        if on_rewrite_done:
-            self._on_rewrite_done_callbacks[rewrite_request] = on_rewrite_done
+        if on_file_start:
+            self._on_start_callbacks[rewrite_request] = on_file_start
+        if on_file_done:
+            self._on_done_callbacks[rewrite_request] = on_file_done
+        if on_file_error:
+            self._on_error_callbacks[rewrite_request] = on_file_error
 
         self._connection.send(
             PipeMessage(
@@ -312,7 +336,6 @@ class BackgroundRewriter:
         self._handle_incoming_messages()
 
     def _handle_incoming_messages(self) -> None:
-
         while True:
             # Instead of `while self._connection.poll():`, wrap in an exception
             # handler, as on Windows the `poll()` call can raise a
@@ -327,62 +350,92 @@ class BackgroundRewriter:
                 # The remote end closed the pipe.
                 break
 
-            assert msg.msgtype == PipeMsgType.REPORT, (
-                "The only messages that should be sent to the main process are reports"
+            # These are the only message types that should be sent from the worker process.
+            match msg.msgtype:
+                case PipeMsgType.REPORT_START:
+                    self._handle_msg_start_rewrite(msg.payload)
+                case PipeMsgType.REPORT_DONE:
+                    self._handle_msg_report_done(msg.payload)
+                case PipeMsgType.REPORT_ERROR:
+                    self._handle_msg_report_error(msg.payload)
+
+    def _handle_msg_start_rewrite(self, request: RewriteRequest) -> None:
+        if not isinstance(request, RewriteRequest):
+            raise TypeError(
+                f"REPORT_START message has unexpected payload type {type(request)}"
             )
+        try:
+            on_start_cb = self._on_start_callbacks.pop(request)
+        except KeyError:
+            # Not having a callback is fine.
+            return
+        self._call_callback(on_start_cb, request)
 
-            self._handle_report(msg.payload)
-
-    def _handle_report(self, report: tuple[RewriteRequest, str]) -> None:
-        """Handle a report from the subprocess."""
-
-        # The request was done (either correctly or in error), so update the counter.
+    def _handle_msg_report_done(self, request: RewriteRequest) -> None:
+        """Handle a 'done' report from the subprocess."""
         self._mark_download_done()
 
+        # Only check after the download is marked 'done', to prevent infinitely
+        # waiting for it.
+        if not isinstance(request, RewriteRequest):
+            raise TypeError(
+                f"REPORT_DONE message has unexpected payload type {type(request)}"
+            )
+
+        on_done_cb = self._on_done_callbacks.pop(request, None)
+        if on_done_cb:
+            self._logger.debug("Calling %r(%r)", on_done_cb, request)
+            self._call_callback(on_done_cb, request)
+
+    def _handle_msg_report_error(self, report: tuple[RewriteRequest, str]) -> None:
+        """Handle an 'error' report from the subprocess."""
+        self._mark_download_done()
+
+        # Only check after the download is marked 'done', to prevent infinitely
+        # waiting for it.
         try:
             request, errormsg = report
         except TypeError:
-            raise TypeError(f"report has unexpected type {type(report)}")
+            raise TypeError(
+                f"REPORT message has unexpected payload type {type(report)}"
+            )
 
-        self._call_on_rewrite_done_callback(request, errormsg)
+        on_error_cb = self._on_error_callbacks.pop(request, None)
+        if on_error_cb:
+            self._logger.debug("Calling %r(%r)", on_error_cb, request)
+            self._call_callback(on_error_cb, request, errormsg)
 
     def _mark_download_done(self) -> None:
         """Reduce the number of pending downloads."""
         self._num_pending_rewrites -= 1
         assert self._num_pending_rewrites >= 0, "downloaded more files than were queued"
 
-    def _call_on_rewrite_done_callback(
-        self, rewrite_request: RewriteRequest, errormsg: str
+    def _call_callback(
+        self,
+        callback: RewriteCallback,
+        rewrite_request: RewriteRequest,
+        *extra_args: Any,
     ) -> None:
-        """Call the 'on-rewrite-done' callback for this request."""
+        """Call the given callback, gracefully handling errors."""
 
         if self._shutdown_event.is_set():
             # Do not call any callbacks any more, as the downloader is trying to shut down.
             return
 
+        args = (rewrite_request, *extra_args)
+        self._logger.debug("calling %s%r", callback.__name__, args)
         try:
-            callback = self._on_rewrite_done_callbacks.pop(rewrite_request)
-        except KeyError:
-            # Not having a callback is fine.
-            return
-
-        self._logger.debug("rewrite done, calling %s", callback.__name__)
-        try:
-            callback(rewrite_request, errormsg)
+            callback(*args)
         except Exception as ex:
             # Catch & log exceptions here, so that a callback causing trouble
-            # doesn't break the downloader itself.
-            self._logger.debug(
-                "exception while calling {!r}({!r}, {!r})".format(
-                    callback, rewrite_request, errormsg
-                )
-            )
+            # doesn't break the rewriter itself.
+            self._logger.debug("exception while calling {!r}".format(callback))
 
             try:
-                self._on_callback_error(rewrite_request, errormsg, ex)
+                self._on_callback_error(rewrite_request, ex, callback, args)
             except Exception:
                 self._logger.exception(
-                    "exception while handling an error in {!r}({!r}, {!r})".format(
-                        callback, rewrite_request, errormsg
+                    "exception while handling an error in {!r}{!r}".format(
+                        callback, args
                     )
                 )

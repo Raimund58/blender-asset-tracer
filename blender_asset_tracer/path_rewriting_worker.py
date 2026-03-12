@@ -37,7 +37,7 @@ type RewriteQueue = queue.Queue[RewriteRequest]
 
 def main() -> None:
     logging.basicConfig(
-        format="\033[95m%(asctime)-15s %(processName)22s %(levelname)8s %(name)s %(message)s\033[0m",
+        format=f"\033[95m%(asctime)-15s {Path(__file__).stem} %(levelname)8s %(name)s %(message)s\033[0m",
         level=logging.DEBUG,
     )
     log = _logger.getChild("background_rewriter")
@@ -119,6 +119,13 @@ def main_loop(
             f"got {type(rewrite_request)}: {rewrite_request!r}"
         )
 
+        tx_queue.put(
+            PipeMessage(
+                msgtype=PipeMsgType.REPORT_START,
+                payload=rewrite_request,
+            )
+        )
+
         try:
             # Convert the pipe-communication-friendly rewrite rules to a dictionary,
             # so that it's compatible again with the rest of the code.
@@ -142,9 +149,20 @@ def main_loop(
             # even when str(ex) were to return an empty string. This happens,
             # for example, when raising a NotImplementedError() without explicit
             # message.
-            send_report(tx_queue, rewrite_request, f"{type(ex).__name__}: {ex!s}")
-        else:
-            send_report(tx_queue, rewrite_request, "")
+            tx_queue.put(
+                PipeMessage(
+                    msgtype=PipeMsgType.REPORT_ERROR,
+                    payload=(rewrite_request, f"{type(ex).__name__}: {ex!s}"),
+                )
+            )
+            return
+
+        tx_queue.put(
+            PipeMessage(
+                msgtype=PipeMsgType.REPORT_DONE,
+                payload=rewrite_request,
+            )
+        )
 
 
 def check_incoming_messages(
@@ -168,28 +186,14 @@ def check_incoming_messages(
             # Not receiving anything is fine.
             break
 
+        # Deal with those message types that can be sent to us.
         match received_msg.msgtype:
             case PipeMsgType.SHUTDOWN:
                 do_shutdown.set()
             case PipeMsgType.QUEUE_REWRITE:
                 rewrite_queue.put(received_msg.payload)
-            case PipeMsgType.REPORT:
-                # Reports are sent by us, not by the other side.
-                pass
 
     return not do_shutdown.is_set()
-
-
-def send_report(
-    tx_queue: MessageQueue,
-    rewrite_request: RewriteRequest,
-    errormsg: str,
-) -> None:
-    message = PipeMessage(
-        msgtype=PipeMsgType.REPORT,
-        payload=(rewrite_request, errormsg),
-    )
-    tx_queue.put(message)
 
 
 def rx_thread_func(

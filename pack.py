@@ -19,6 +19,7 @@ import os
 import shutil
 import sys
 from pathlib import Path, PurePath
+from typing import Any
 
 # Ensure BAT can be imported, even when it's not installed as package.
 _my_dir = Path(__file__).resolve().parent
@@ -96,19 +97,23 @@ def perform_path_rewriting(
     # Keep track of failures reported via the callbacks below.
     failures: dict[Path, str] = {}
 
-    def on_rewrite_done(request: RewriteRequest, errormsg: str) -> None:
-        is_failure = bool(errormsg)
-        if is_failure:
-            failures[request.blendfile] = errormsg
+    def on_rewrite_done(request: RewriteRequest) -> None:
+        print(f"\033[92mRewrite done: {request=}\033[0m")
 
-        color = 91 if is_failure else 92
-        print(f"\033[{color}mRewrite done: {request=}  {errormsg=}\033[0m")
+    def on_rewrite_error(request: RewriteRequest, errormsg: str) -> None:
+        failures[request.blendfile] = errormsg
+        print(f"\033[91mRewrite done: {request=}  {errormsg=}\033[0m")
 
     def on_callback_error(
-        request: RewriteRequest, errormsg: str, ex: Exception
+        request: RewriteRequest,
+        ex: Exception,
+        callback: BackgroundRewriter.RewriteCallback,
+        callback_args: tuple[Any, ...],
     ) -> None:
         # This error means the on_rewrite_done() callback itself caused an exception. That's a bug.
-        raise RuntimeError(f"Callback error: {request=}  {errormsg=}  {ex=}")
+        raise RuntimeError(
+            f"Callback error: {request=}  {ex=} {callback=} {callback_args}"
+        )
 
     bgrewriter = BackgroundRewriter(on_callback_error)
     bgrewriter.start()
@@ -140,7 +145,8 @@ def perform_path_rewriting(
                 file_info.relpath_in_pack,
                 file_info.rewrite_rules,
                 file_info.rewritten_file_path,
-                on_rewrite_done=on_rewrite_done,
+                on_file_done=on_rewrite_done,
+                on_file_error=on_rewrite_error,
             )
             print(
                 f"\033[96mQueueing: {abs_path} → {file_info.rewritten_file_path}\033[0m"

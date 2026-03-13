@@ -454,7 +454,7 @@ class QueueingExecutor:
 
         Keeps performing steps for at least `min_duration_sec` seconds.
         """
-        start_time = time.monotonic() + min_duration_sec
+        start_time = time.monotonic()
         while self._queue and time.monotonic() - start_time < min_duration_sec:
             self.run_step()
 

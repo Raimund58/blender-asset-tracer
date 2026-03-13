@@ -17,6 +17,7 @@ import collections
 import functools
 import logging
 import shutil
+from collections.abc import Iterator
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, Callable, Protocol
 
@@ -79,6 +80,78 @@ class FileTransferProtocol(Protocol):
     def num_files_to_transfer(self) -> tuple[int, int]: ...
 
 
+class _DefaultFileTransfer:
+    """File transfer that copies files to a local directory.
+
+    This is the default implementation, used when no custom FileTransferProtocol
+    is provided to BATPacker.
+    """
+
+    _batpacker: BATPacker | None
+    _files_iter: Iterator[file_usage.FileInfo] | None
+    _checkout_path_final: PurePosixPath | None
+    _num_total: int
+    _num_done: int
+
+    def __init__(self, pack_target_dir: Path, reporter: BATPackReporter) -> None:
+        self._pack_target_dir = pack_target_dir
+        self._reporter = reporter
+        self._checkout_path_final = None
+        self._files_iter = None
+        self._num_total = -1
+        self._num_done = 0
+
+    def start(self, batpacker: BATPacker) -> None:
+        assert batpacker.deps_repo is not None
+
+        files_to_copy = batpacker.all_files_to_copy()
+        self._num_total = len(files_to_copy)
+        self._files_iter = iter(files_to_copy.values())
+
+        source_file_info = batpacker.deps_repo.source_file_info()
+        assert source_file_info.relpath_in_pack is not None
+        self._checkout_path_final = PurePosixPath(
+            source_file_info.relpath_in_pack.as_posix()
+        )
+
+    def step(self) -> bool:
+        assert self._files_iter is not None, "call start() first"
+
+        file_info = next(self._files_iter, None)
+        if file_info is None:
+            return False
+
+        path_to_pack = file_info.path_to_pack
+        target_relpath = file_info.relpath_in_pack
+        assert target_relpath is not None
+
+        if not path_to_pack.exists():
+            self._reporter.on_missing_file(path_to_pack, target_relpath)
+            return True
+
+        target_abspath = self._pack_target_dir / target_relpath
+        self._reporter.on_copy_start(path_to_pack, target_abspath)
+        try:
+            target_abspath.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path_to_pack, target_abspath)
+        except Exception as ex:
+            self._reporter.on_copy_error(
+                path_to_pack, target_abspath, f"{type(ex).__name__}: {ex!s}"
+            )
+            return True
+
+        self._reporter.on_copy_done(path_to_pack, target_abspath)
+        self._num_done += 1
+        return True
+
+    def blendfile_location_in_pack(self) -> PurePosixPath:
+        assert self._checkout_path_final is not None, "call start() first"
+        return self._checkout_path_final
+
+    def num_files_to_transfer(self) -> tuple[int, int]:
+        return self._num_total, self._num_done
+
+
 class BATPacker:
     """BATPacker has all the logic for creating BAT packs, except file transfer.
 
@@ -109,27 +182,17 @@ class BATPacker:
     # find it, and shut it down.
     rewriter: BackgroundRewriter | None
 
-    # Target path to write the BAT pack to.
+    # Callback for file transfers.
     #
-    # Providing this will make the packer create a simple filesystem based pack.
-    #
-    # This MUST be given if file_transfer_func is None.
-    pack_target_dir: Path | None
-
-    # Callback function for file transfers.
-    #
-    # Provide this to override the default filesystem based pack (for example
-    # for Shaman server transfers).
-    #
-    # This MUST be given if pack_target_dir is None.
-    file_transfer: FileTransferProtocol | None
+    # When pack_target_dir is given to the constructor, this is a
+    # _DefaultFileTransfer. Otherwise a custom FileTransferProtocol must be
+    # provided.
+    file_transfer: FileTransferProtocol
 
     executor: QueueingExecutor
 
     _is_aborted: bool
     _log: logging.Logger
-    _num_files_to_transfer_total: int
-    _num_files_to_transfer_done: int
 
     def __init__(
         self,
@@ -149,13 +212,14 @@ class BATPacker:
         self.reporter = reporter
         self.deps_repo = None
         self.rewriter = None
-        self.pack_target_dir = pack_target_dir
-        self.file_transfer = file_transfer
+        if pack_target_dir is not None:
+            self.file_transfer = _DefaultFileTransfer(pack_target_dir, reporter)
+        else:
+            assert file_transfer is not None
+            self.file_transfer = file_transfer
         self.executor = QueueingExecutor()
         self._is_aborted = False
         self._log = logger.getChild(BATPacker.__name__)
-        self._num_files_to_transfer_total = -1
-        self._num_files_to_transfer_done = 0
 
     def start(self) -> None:
         """Perform initial investigation."""
@@ -166,7 +230,6 @@ class BATPacker:
         self.deps_repo = file_usage.dependencies_of_current_blendfile(
             self.project_root, self.options
         )
-        self._num_files_to_transfer_total = len(self.deps_repo.file_infoes)
         self.queue(self._step_rewrite_determine_files)
 
     def step(self) -> bool:
@@ -213,13 +276,7 @@ class BATPacker:
 
     def blendfile_location_in_pack(self) -> PurePosixPath:
         """Get the path of the packed blendfile, relative to the pack root."""
-        if self.file_transfer:
-            return self.file_transfer.blendfile_location_in_pack()
-
-        assert self.deps_repo is not None
-        source_file_info = self.deps_repo.source_file_info()
-        assert source_file_info.relpath_in_pack is not None
-        return PurePosixPath(source_file_info.relpath_in_pack.as_posix())
+        return self.file_transfer.blendfile_location_in_pack()
 
     def num_files_to_transfer(self) -> tuple[int, int]:
         """Return the number of files that need to be transferred.
@@ -235,9 +292,7 @@ class BATPacker:
         for the Shaman protocol to get this information. Or some paths may
         turn out to be multiple paths (UDIMs for example).
         """
-        if self.file_transfer:
-            return self.file_transfer.num_files_to_transfer()
-        return self._num_files_to_transfer_total, self._num_files_to_transfer_done
+        return self.file_transfer.num_files_to_transfer()
 
     def _step_rewrite_determine_files(self) -> None:
         """Check which files actually need rewriting, and which ones are already cached."""
@@ -332,19 +387,14 @@ class BATPacker:
         self.queue(self._step_rewrite_check)
 
     def _step_copy_files_start(self) -> None:
-        """If there is a file transfer object given, start it up."""
-        if self.file_transfer:
-            self.file_transfer.start(self)
+        """Start the file transfer."""
+        self.file_transfer.start(self)
         self.queue(self._step_copy_files)
 
     def _step_copy_files(self) -> None:
-        """Calls into the copy callback to perform the file transfer."""
-        if self.file_transfer:
-            has_more_work = self.file_transfer.step()
-        else:
-            has_more_work = self._default_file_transfer_func()
-
-        if has_more_work:
+        """Calls into the file transfer to perform one transfer step."""
+        more_to_copy = self.file_transfer.step()
+        if more_to_copy:
             self.queue(self._step_copy_files)
 
     def all_files_to_copy(self) -> dict[Path, file_usage.FileInfo]:
@@ -355,53 +405,6 @@ class BATPacker:
         """
         assert self.deps_repo is not None, "call .start() first"
         return self.deps_repo.file_infoes
-
-    def pop_file_to_copy(self) -> file_usage.FileInfo | None:
-        """Obtain the next file to transfer.
-
-        File Transfer Functions that work on a file-by-file basis can use this
-        to get the next file they need to transfer.
-        """
-        assert self.deps_repo is not None, "call .start() first"
-        try:
-            _, file_info = self.deps_repo.file_infoes.popitem()
-        except KeyError:
-            return None
-        return file_info
-
-    def _default_file_transfer_func(self) -> bool:
-        """Copy a single file, return whether more files may need copying."""
-        assert self.pack_target_dir is not None
-
-        file_info = self.pop_file_to_copy()
-        if file_info is None:
-            return False  # No more files to copy, the work is done.
-
-        path_to_pack = file_info.path_to_pack
-
-        target_relpath = file_info.relpath_in_pack
-        assert target_relpath is not None
-
-        if not path_to_pack.exists():
-            self.reporter.on_missing_file(path_to_pack, target_relpath)
-            return True  # There may be more files, so keep going.
-
-        target_abspath = self.pack_target_dir / target_relpath
-
-        # Copy the file.
-        self.reporter.on_copy_start(path_to_pack, target_abspath)
-        try:
-            target_abspath.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path_to_pack, target_abspath)
-        except Exception as ex:
-            self.reporter.on_copy_error(
-                path_to_pack, target_abspath, f"{type(ex).__name__}: {ex!s}"
-            )
-            return True  # There may be more files, so keep going.
-
-        self.reporter.on_copy_done(path_to_pack, target_abspath)
-        self._num_files_to_transfer_done += 1
-        return True  # There may be more files, so keep going.
 
 
 class QueueingExecutor:

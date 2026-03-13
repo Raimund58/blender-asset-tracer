@@ -113,7 +113,18 @@ class FileDependencyRepository:
 
     def source_file_info(self) -> FileInfo:
         """Get the FileInfo for the currently-open blend file."""
-        return self.file_infoes[self.packed_source_file]
+        try:
+            return self.file_infoes[self.packed_source_file]
+        except KeyError:
+            print("Cannot find source file info")
+            print(f"Source file: {self.packed_source_file}")
+            if self.file_infoes:
+                print("Available files:")
+                for path in self.file_infoes.keys():
+                    print(f"    - {path}")
+            else:
+                print("NO files known! This is weird, indeed.")
+            raise
 
 
 def _deps_repo_add_file(

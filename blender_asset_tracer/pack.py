@@ -1,17 +1,26 @@
 # SPDX-FileCopyrightText: 2026 Blender Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""BAT packing."""
+"""BAT packing support for Blender add-ons.
+
+The BATPacker class makes it possible to create a BAT pack in a step-by-step
+way. Each step is either an investigation, communicating with a background
+process (for file rewriting), or transferring a file.
+
+This allows a Blender add-on to periodically get control over the main thread
+back, so that Blender can update its UI and respond to events.
+"""
 
 from __future__ import annotations
 
 import collections
+import dataclasses
 import functools
 import logging
 import shutil
 import time
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, Callable, Protocol, TypeAlias
+from typing import Any, Callable, Protocol
 
 from . import file_usage, path_rewriting
 from .path_rewriting_process import BackgroundRewriter, RewriteRequest
@@ -19,15 +28,9 @@ from .path_rewriting_process import BackgroundRewriter, RewriteRequest
 __all__ = (
     "BATPacker",
     "BATPackReporter",
-    "CopyFileFunc",
+    "FileTransferProtocol",
+    "QueueingExecutor",
 )
-
-# Function that takes arguments (source, destination) and copies a single file.
-#
-# The destination is always a relative path. It is up to the caller to determine
-# what to do with it (prefix it with a local path, send it to the Shaman server
-# as-is, etc.).
-CopyFileFunc: TypeAlias = Callable[[Path, PurePath], None]
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +100,7 @@ class BATPacker:
 
     project_root: Path
     options: file_usage.Options
-    reporter: BATPackReporter
+    reporter: BATPackReporterWrapper
 
     # BAT dependency info. Contains all the files that need to be copied to the
     # render farm.
@@ -149,7 +152,7 @@ class BATPacker:
             )
         self.project_root = project_root
         self.options = options
-        self.reporter = reporter
+        self.reporter = BATPackReporterWrapper(reporter)
         self.deps_repo = None
         self.rewriter = None
         self.pack_target_dir = pack_target_dir
@@ -193,7 +196,22 @@ class BATPacker:
         """
         if self.executor.is_done:
             return False
-        self.executor.run_for(min_duration_sec)
+
+        self.reporter.was_called = False
+
+        # Keep looping until time runs out.
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < min_duration_sec:
+            self.executor.run_step()
+
+            # Stop the loop under certain conditions. I (Sybren) found this more
+            # readable than having a more complex `while` condition with more
+            # negations.
+            if self.executor.is_done:
+                break
+            if self.reporter.was_called:
+                break
+
         return not self.executor.is_done
 
     def abort(self) -> None:
@@ -452,15 +470,52 @@ class QueueingExecutor:
         # self._log.debug("calling %r", workfunc)
         workfunc()
 
-    def run_for(self, min_duration_sec: float) -> None:
-        """Perform one or more steps.
-
-        Keeps performing steps for at least `min_duration_sec` seconds.
-        """
-        start_time = time.monotonic()
-        while self._queue and time.monotonic() - start_time < min_duration_sec:
-            self.run_step()
-
     def clear(self) -> None:
         # self._log.debug("clearing queue")
         self._queue.clear()
+
+
+@dataclasses.dataclass
+class BATPackReporterWrapper(BATPackReporter):
+    """BATPackReporter that tracks whether it was called.
+
+    When a reporter function was called, BATPacker.run_for(duration) has to
+    return, yielding control to Blender so that it can handle the report.
+    """
+
+    wrapped: BATPackReporter
+    was_called: bool = False
+
+    def on_error_on_error(self, message: str, exception: Exception) -> None:
+        self.was_called = True
+        self.wrapped.on_error_on_error(message, exception)
+
+    def on_copy_start(self, src: Path, dest: PurePath) -> None:
+        self.was_called = True
+        self.wrapped.on_copy_start(src, dest)
+
+    def on_copy_done(self, src: Path, dest: PurePath) -> None:
+        self.was_called = True
+        self.wrapped.on_copy_done(src, dest)
+
+    def on_copy_error(self, src: Path, dest: PurePath, errormsg: str) -> None:
+        self.was_called = True
+        self.wrapped.on_copy_error(src, dest, errormsg)
+
+    def on_rewrite_start(self, blendfile: Path, relpath_in_pack: PurePath) -> None:
+        self.was_called = True
+        self.wrapped.on_rewrite_start(blendfile, relpath_in_pack)
+
+    def on_rewrite_done(self, blendfile: Path, relpath_in_pack: PurePath) -> None:
+        self.was_called = True
+        self.wrapped.on_rewrite_done(blendfile, relpath_in_pack)
+
+    def on_rewrite_error(
+        self, blendfile: Path, relpath_in_pack: PurePath, errormsg: str
+    ) -> None:
+        self.was_called = True
+        self.wrapped.on_rewrite_error(blendfile, relpath_in_pack, errormsg)
+
+    def on_missing_file(self, blendfile: Path, relpath_in_pack: PurePath) -> None:
+        self.was_called = True
+        self.wrapped.on_missing_file(blendfile, relpath_in_pack)

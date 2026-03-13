@@ -37,8 +37,8 @@ type RewriteQueue = queue.Queue[RewriteRequest]
 
 def main() -> None:
     logging.basicConfig(
-        format=f"\033[95m%(asctime)-15s {Path(__file__).stem} %(levelname)8s %(name)s %(message)s\033[0m",
-        level=logging.DEBUG,
+        format=f"%(asctime)-15s {Path(__file__).stem:>22} %(levelname)8s %(name)s %(message)s",
+        level=logging.INFO,
     )
     log = _logger.getChild("background_rewriter")
     log.info("Rewriter background process starting")
@@ -130,6 +130,16 @@ def main_loop(
             # Convert the pipe-communication-friendly rewrite rules to a dictionary,
             # so that it's compatible again with the rest of the code.
             rewrite_rules_as_dict = dict(rewrite_request.rewrite_rules)
+
+            _logger.info(
+                "Path-rewriting file:\n"
+                "  source   : %s\n"
+                "  in pack  : %s\n"
+                "  cache to : %s",
+                rewrite_request.blendfile,
+                rewrite_request.relpath_in_pack,
+                rewrite_request.save_to,
+            )
 
             # Do the actual path rewriting.
             path_rewriting.rewrite_file(
@@ -224,7 +234,7 @@ def rx_thread_func(
                 do_shutdown.set()
                 return
 
-            log.info("received message: %s", received_msg)
+            log.debug("received message: %s", received_msg)
             rx_queue.put(received_msg)
 
 
@@ -242,7 +252,7 @@ def tx_thread_func(
             # Not having anything to transmit is fine.
             continue
 
-        log.info("TX: sending message %s", queued_msg)
+        log.debug("TX: sending message %s", queued_msg)
         try:
             connection.send(queued_msg)
         except OSError:

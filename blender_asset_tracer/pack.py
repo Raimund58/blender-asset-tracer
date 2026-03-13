@@ -14,11 +14,9 @@ back, so that Blender can update its UI and respond to events.
 from __future__ import annotations
 
 import collections
-import dataclasses
 import functools
 import logging
 import shutil
-import time
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, Callable, Protocol
 

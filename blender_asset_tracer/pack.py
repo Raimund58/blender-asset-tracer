@@ -39,7 +39,10 @@ class BATPackReporter(Protocol):
     """
 
     def on_error_on_error(self, message: str, exception: Exception) -> None:
-        """Called when on_copy_error() or on_rewrite_error() raise an exception."""
+        """Called when on_copy_error() or on_rewrite_error() raise an exception.
+
+        So this is literally an "error on error" event.
+        """
         ...
 
     def on_copy_start(self, src: Path, dest: PurePath) -> None:

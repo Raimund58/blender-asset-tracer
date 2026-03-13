@@ -92,15 +92,11 @@ class BATPacker:
 
     Each 'batpacker.step()' call performs a single step in the process. The
     code using this class is responsible for calling this function often enough.
-
-    `batpacker.run_for(time_in_sec)` performs one or more steps, for as long as
-    the allotted time hasn't been exceeded yet. Note that it doesn't abort any
-    steps, and thus the given time WILL be exceeded.
     """
 
     project_root: Path
     options: file_usage.Options
-    reporter: BATPackReporterWrapper
+    reporter: BATPackReporter
 
     # BAT dependency info. Contains all the files that need to be copied to the
     # render farm.
@@ -152,7 +148,7 @@ class BATPacker:
             )
         self.project_root = project_root
         self.options = options
-        self.reporter = BATPackReporterWrapper(reporter)
+        self.reporter = reporter
         self.deps_repo = None
         self.rewriter = None
         self.pack_target_dir = pack_target_dir
@@ -184,34 +180,6 @@ class BATPacker:
         if self.executor.is_done:
             return False
         self.executor.run_step()
-        return not self.executor.is_done
-
-    def run_for(self, min_duration_sec: float) -> bool:
-        """Perform one or more steps of the packing process.
-
-        Keeps performing steps for at least `min_duration_sec` seconds.
-
-        Returns whether there are more steps to do (True) or the process is
-        done (False).
-        """
-        if self.executor.is_done:
-            return False
-
-        self.reporter.was_called = False
-
-        # Keep looping until time runs out.
-        start_time = time.monotonic()
-        while time.monotonic() - start_time < min_duration_sec:
-            self.executor.run_step()
-
-            # Stop the loop under certain conditions. I (Sybren) found this more
-            # readable than having a more complex `while` condition with more
-            # negations.
-            if self.executor.is_done:
-                break
-            if self.reporter.was_called:
-                break
-
         return not self.executor.is_done
 
     def abort(self) -> None:
@@ -473,49 +441,3 @@ class QueueingExecutor:
     def clear(self) -> None:
         # self._log.debug("clearing queue")
         self._queue.clear()
-
-
-@dataclasses.dataclass
-class BATPackReporterWrapper(BATPackReporter):
-    """BATPackReporter that tracks whether it was called.
-
-    When a reporter function was called, BATPacker.run_for(duration) has to
-    return, yielding control to Blender so that it can handle the report.
-    """
-
-    wrapped: BATPackReporter
-    was_called: bool = False
-
-    def on_error_on_error(self, message: str, exception: Exception) -> None:
-        self.was_called = True
-        self.wrapped.on_error_on_error(message, exception)
-
-    def on_copy_start(self, src: Path, dest: PurePath) -> None:
-        self.was_called = True
-        self.wrapped.on_copy_start(src, dest)
-
-    def on_copy_done(self, src: Path, dest: PurePath) -> None:
-        self.was_called = True
-        self.wrapped.on_copy_done(src, dest)
-
-    def on_copy_error(self, src: Path, dest: PurePath, errormsg: str) -> None:
-        self.was_called = True
-        self.wrapped.on_copy_error(src, dest, errormsg)
-
-    def on_rewrite_start(self, blendfile: Path, relpath_in_pack: PurePath) -> None:
-        self.was_called = True
-        self.wrapped.on_rewrite_start(blendfile, relpath_in_pack)
-
-    def on_rewrite_done(self, blendfile: Path, relpath_in_pack: PurePath) -> None:
-        self.was_called = True
-        self.wrapped.on_rewrite_done(blendfile, relpath_in_pack)
-
-    def on_rewrite_error(
-        self, blendfile: Path, relpath_in_pack: PurePath, errormsg: str
-    ) -> None:
-        self.was_called = True
-        self.wrapped.on_rewrite_error(blendfile, relpath_in_pack, errormsg)
-
-    def on_missing_file(self, blendfile: Path, relpath_in_pack: PurePath) -> None:
-        self.was_called = True
-        self.wrapped.on_missing_file(blendfile, relpath_in_pack)

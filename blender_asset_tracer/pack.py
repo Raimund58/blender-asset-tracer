@@ -80,8 +80,8 @@ class FileTransferProtocol(Protocol):
     def num_files_to_transfer(self) -> tuple[int, int]: ...
 
 
-class _DefaultFileTransfer:
-    """File transfer that copies files to a local directory.
+class DefaultFileTransfer(FileTransferProtocol):
+    """File transfer class that copies files to a local directory.
 
     This is the default implementation, used when no custom FileTransferProtocol
     is provided to BATPacker.
@@ -213,7 +213,7 @@ class BATPacker:
         self.deps_repo = None
         self.rewriter = None
         if pack_target_dir is not None:
-            self.file_transfer = _DefaultFileTransfer(pack_target_dir, reporter)
+            self.file_transfer = DefaultFileTransfer(pack_target_dir, reporter)
         else:
             assert file_transfer is not None
             self.file_transfer = file_transfer

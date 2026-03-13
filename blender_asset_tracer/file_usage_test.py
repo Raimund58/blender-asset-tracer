@@ -164,7 +164,9 @@ class PathsOutsideProjectsTest(unittest.TestCase):
         root_path = Path(blendfiles.anchor) / "nothing/is/in/the/root"
         repo = fu.FileDependencyRepository(root_path)
         for path in self.paths:
-            repo.add_file(path, used_by_library=None)
+            fu._deps_repo_add_file_single(
+                repo, abspath=path, reported_path=None, used_by_library=None
+            )
 
         fu.determine_pack_paths_clustered(repo)
 

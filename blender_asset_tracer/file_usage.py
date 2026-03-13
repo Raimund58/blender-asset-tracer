@@ -49,6 +49,13 @@ class FileInfo:
     # enough to know all the relevant info about this file.
     source_path: Path
 
+    # The path that Blender reported. If this is None, it's the same as
+    # `source_path`.
+    #
+    # This is only set when Blender reports a single path that actually is a
+    # placeholder for multiple files (like UDIM paths).
+    reported_path: Path | None = None
+
     # Indicator that this file needs relocation.
     #
     # `relpath_in_pack` is only allowed to be None if this is True.
@@ -108,45 +115,95 @@ class FileDependencyRepository:
         """Get the FileInfo for the currently-open blend file."""
         return self.file_infoes[self.packed_source_file]
 
-    def add_file(self, abspath: Path, *, used_by_library: BlendFile) -> FileInfo:
-        """Add a file to the repository.
 
-        :param abspath: Absolute path of the file. This can be an external asset
-           (like a `.png`) or a `.blend` file.
-        :param used_by_library: the Library data-block (or None, if the current
-           blend file) that uses this file.
-        """
-        try:
-            file_info = self.file_infoes[abspath]
-        except KeyError:
-            pass
-        else:
-            # Remember that this library blend file references this asset file.
-            file_info.references.add(used_by_library)
-            return file_info
+def _deps_repo_add_file(
+    deps_repo: FileDependencyRepository,
+    reported_path: Path,
+    *,
+    used_by_library: BlendFile,
+) -> None:
+    """Add a file to the repository.
 
-        # Construct all the file info. Most of this code just depends on the
-        # file's path and the root path, which means it doesn't have to be
-        # repeated for every ID that uses it.
-        file_info = FileInfo(source_path=abspath)
-        self.file_infoes[abspath] = file_info
+    :param abspath: Absolute path of the file. This can be an external asset
+       (like a `.png`) or a `.blend` file.
+    :param used_by_library: the Library data-block (or None, if the current
+       blend file) that uses this file.
+    """
 
+    # Detect file paths that actually represent multiple files.
+    #
+    # NOTE: this only supports globbing in the filename part of the path. If
+    # more is required, the code needs some work.
+    if "<UDIM>" in reported_path.name:
+        glob_path = reported_path.with_name(reported_path.name.replace("<UDIM>", "*"))
+    else:
+        # No globbing necessary.
+        _deps_repo_add_file_single(
+            deps_repo,
+            abspath=reported_path,
+            reported_path=None,
+            used_by_library=used_by_library,
+        )
+        return
+
+    # Use case-insensitive globbing, as the path may come from Windows while
+    # running on Linux.
+    for abs_path in glob_path.parent.rglob(
+        glob_path.name, case_sensitive=False, recurse_symlinks=True
+    ):
+        if not abs_path.is_file(follow_symlinks=True):
+            # Directories themselves cannot be packed, only files.
+            # And UNIX sockets should also be skipped.
+            continue
+        _deps_repo_add_file_single(
+            deps_repo,
+            abspath=abs_path,
+            reported_path=reported_path,
+            used_by_library=used_by_library,
+        )
+
+
+def _deps_repo_add_file_single(
+    deps_repo: FileDependencyRepository,
+    *,
+    abspath: Path,
+    reported_path: Path | None,
+    used_by_library: BlendFile,
+) -> FileInfo:
+    try:
+        file_info = deps_repo.file_infoes[abspath]
+    except KeyError:
+        pass
+    else:
         # Remember that this library blend file references this asset file.
         file_info.references.add(used_by_library)
-
-        try:
-            relpath_in_pack = PurePath(abspath.relative_to(self.root_path))
-        except ValueError:
-            # This file does not sit within the project root, and so needs relocation.
-            # It will be handled later, when all relocations are known.
-            file_info.needs_relocation = True
-            file_info.relpath_in_pack = None
-        else:
-            # This file can be used as referenced.
-            file_info.needs_relocation = False
-            file_info.relpath_in_pack = PurePath(relpath_in_pack)
-
         return file_info
+
+    # Construct all the file info. Most of this code just depends on the
+    # file's path and the root path, which means it doesn't have to be
+    # repeated for every ID that uses it.
+    file_info = FileInfo(
+        source_path=abspath,
+        reported_path=reported_path,
+    )
+    deps_repo.file_infoes[abspath] = file_info
+
+    # Remember that this library blend file references this asset file.
+    file_info.references.add(used_by_library)
+
+    try:
+        relpath_in_pack = PurePath(abspath.relative_to(deps_repo.root_path))
+    except ValueError:
+        # This file does not sit within the project root, and so needs relocation.
+        # It will be handled later, when all relocations are known.
+        file_info.needs_relocation = True
+        file_info.relpath_in_pack = None
+    else:
+        # This file can be used as referenced.
+        file_info.needs_relocation = False
+        file_info.relpath_in_pack = PurePath(relpath_in_pack)
+
+    return file_info
 
 
 def dependencies_of_current_blendfile(
@@ -185,7 +242,7 @@ def determine_dependencies(
     # Add the current blend file itself.
     source_file = library_abspath(None)
     deps_repo.packed_source_file = source_file
-    deps_repo.add_file(source_file, used_by_library=None)
+    _deps_repo_add_file(deps_repo, source_file, used_by_library=None)
 
     # Step 1: find all inter-blendfile relations.
     for used_id, ids_using_some_id in bpy.data.user_map().items():
@@ -204,7 +261,11 @@ def determine_dependencies(
                 continue
 
             # id_user_lib_path = library_abspath(used_library)
-            deps_repo.add_file(used_lib_path, used_by_library=id_user.library)
+            _deps_repo_add_file(
+                deps_repo,
+                used_lib_path,
+                used_by_library=id_user.library,
+            )
 
     # Step 2: find all paths to non-blendfiles.
     def _visit_path_usage(owner_id: bpy.types.ID, path: str, _: Any) -> str | None:
@@ -223,7 +284,7 @@ def determine_dependencies(
             return None
 
         abspath = path_absolute(path, library=owner_id.library)
-        deps_repo.add_file(abspath, used_by_library=owner_id.library)
+        _deps_repo_add_file(deps_repo, abspath, used_by_library=owner_id.library)
         return None
 
     bpy.data.file_path_foreach(_visit_path_usage)
@@ -239,7 +300,7 @@ def determine_pack_paths_clustered(repo: FileDependencyRepository) -> None:
     """
 
     # This is the root directory (relative to the project root in the pack).
-    relocated_root = Path("_outside_project")
+    relocated_root = PurePath("_outside_project")
 
     # Cluster all paths that need relocation, in order to determine shorter packed paths.
     abs_paths = [
@@ -531,4 +592,12 @@ def determine_rewriting_needs(repo: FileDependencyRepository) -> None:
             assert blendfile_info.needs_path_rewriting, (
                 f"should have marked {blendfile_path}"
             )
-            blendfile_info.rewrite_rules[file_abs_path] = file_info.relpath_in_pack
+
+            # Store rewrite rules per directory. This ensures that 'fake' file
+            # paths (like with the '<UDIM>' markers) get mapped correctly too.
+            assert file_abs_path.name == file_info.relpath_in_pack.name, (
+                f"path rewriting should retain the filename: {file_abs_path} - {file_info.relpath_in_pack}"
+            )
+            blendfile_info.rewrite_rules[file_abs_path.parent] = (
+                file_info.relpath_in_pack.parent
+            )

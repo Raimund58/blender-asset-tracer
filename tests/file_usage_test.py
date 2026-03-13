@@ -100,10 +100,10 @@ class FileUsageTests(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(dataclasses.asdict(expect_repo), dataclasses.asdict(deps_repo))
 
-    def test_sequence_udim(self) -> None:
+    def test_sequence_udim_no_rewriting(self) -> None:
         # UDIM tiles are special, because the filename itself has a <UDIM>
         # marker in there and thus doesn't exist itself.
-        pack_root = blendfiles / "udim"
+        pack_root = blendfiles / "udim/same_dir"
         infile = pack_root / "v01_UDIM_BAT_debugging.blend"
         load_blendfile(infile)
 
@@ -119,10 +119,75 @@ class FileUsageTests(unittest.TestCase):
                     relpath_in_pack=PurePath("v01_UDIM_BAT_debugging.blend"),
                     references={None},
                 ),
-                pack_root / "cube_UDIM.color.<UDIM>.png": file_usage.FileInfo(
-                    source_path=pack_root / "cube_UDIM.color.<UDIM>.png",
-                    relpath_in_pack=PurePath("cube_UDIM.color.<UDIM>.png"),
+                pack_root / "cube_UDIM.color.1001.png": file_usage.FileInfo(
+                    source_path=pack_root / "cube_UDIM.color.1001.png",
+                    reported_path=pack_root / "cube_UDIM.color.<UDIM>.png",
+                    relpath_in_pack=PurePath("cube_UDIM.color.1001.png"),
                     references={None},
+                ),
+                pack_root / "cube_UDIM.color.1002.png": file_usage.FileInfo(
+                    source_path=pack_root / "cube_UDIM.color.1002.png",
+                    reported_path=pack_root / "cube_UDIM.color.<UDIM>.png",
+                    relpath_in_pack=PurePath("cube_UDIM.color.1002.png"),
+                    references={None},
+                ),
+                pack_root / "cube_UDIM.color.1003.png": file_usage.FileInfo(
+                    source_path=pack_root / "cube_UDIM.color.1003.png",
+                    reported_path=pack_root / "cube_UDIM.color.<UDIM>.png",
+                    relpath_in_pack=PurePath("cube_UDIM.color.1003.png"),
+                    references={None},
+                ),
+            },
+        )
+
+        # Convert to dictionary to make the test differ work for us.
+        self.maxDiff = None
+        self.assertEqual(dataclasses.asdict(expect_repo), dataclasses.asdict(deps_repo))
+
+    def test_sequence_udim_with_rewriting(self) -> None:
+        # UDIM tiles are special, because the filename itself has a <UDIM>
+        # marker in there and thus doesn't exist itself.
+        pack_root = blendfiles / "udim/needs_rewriting/root"
+        infile = pack_root / "v01_UDIM_BAT_debugging.blend"
+        load_blendfile(infile)
+
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
+        file_usage.determine_pack_paths_clustered(deps_repo)
+
+        udim_root_dir = pack_root.parent
+        pack_udim_root_dir = PurePath("_outside_project/needs_rewriting")
+
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes={
+                pack_root / "v01_UDIM_BAT_debugging.blend": file_usage.FileInfo(
+                    source_path=pack_root / "v01_UDIM_BAT_debugging.blend",
+                    relpath_in_pack=PurePath("v01_UDIM_BAT_debugging.blend"),
+                    references={None},
+                    needs_path_rewriting=True,
+                    rewrite_rules={udim_root_dir: pack_udim_root_dir},
+                ),
+                udim_root_dir / "cube_UDIM.color.1001.png": file_usage.FileInfo(
+                    source_path=udim_root_dir / "cube_UDIM.color.1001.png",
+                    reported_path=udim_root_dir / "cube_UDIM.color.<UDIM>.png",
+                    relpath_in_pack=pack_udim_root_dir / "cube_UDIM.color.1001.png",
+                    references={None},
+                    needs_relocation=True,
+                ),
+                udim_root_dir / "cube_UDIM.color.1002.png": file_usage.FileInfo(
+                    source_path=udim_root_dir / "cube_UDIM.color.1002.png",
+                    reported_path=udim_root_dir / "cube_UDIM.color.<UDIM>.png",
+                    relpath_in_pack=pack_udim_root_dir / "cube_UDIM.color.1002.png",
+                    references={None},
+                    needs_relocation=True,
+                ),
+                udim_root_dir / "cube_UDIM.color.1003.png": file_usage.FileInfo(
+                    source_path=udim_root_dir / "cube_UDIM.color.1003.png",
+                    reported_path=udim_root_dir / "cube_UDIM.color.<UDIM>.png",
+                    relpath_in_pack=pack_udim_root_dir / "cube_UDIM.color.1003.png",
+                    references={None},
+                    needs_relocation=True,
                 ),
             },
         )

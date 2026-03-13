@@ -117,10 +117,17 @@ def rewrite_file(
         # file_usage.dependencies_of_current_blendfile() uses.
 
         abs_path = file_usage.path_absolute(path, library=owner_id.library)
+
+        # Look up the file's directory in the rewrite rules.
+        abs_path_dir = abs_path.parent
         try:
-            rewritten_path_in_pack = rewrite_rules[abs_path]
+            rewritten_dir_path_in_pack = rewrite_rules[abs_path_dir]
         except KeyError:
+            _logger.info("  - keeping {!s}".format(abs_path))
             return None
+
+        # Construct the rewritten file path.
+        rewritten_path_in_pack = rewritten_dir_path_in_pack / abs_path.name
 
         # The path is relative to the project root in the pack. It has to be
         # rewritten so that it's relative to the loaded blend file.

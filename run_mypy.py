@@ -37,6 +37,15 @@ def main() -> NoReturn:
     # shouldn't (even though its stdout is a terminal).
     os.environ["MYPY_FORCE_COLOR"] = "1"
 
+    stdout, stderr, status = mypy.api.run(["--version"])
+    if status:
+        print("Error running mypy:")
+        print(stdout)
+        print(stderr, file=sys.stderr)
+        raise SystemExit(status)
+    print(f"Using {stdout.strip()} from {mypy.__file__}")
+    print()
+
     # No arguments are given on the CLI, as the entire mypy config should be
     # done via pyproject.toml. That way, manually-invoked mypy will behave the
     # same as running through this script.

@@ -76,7 +76,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
         load_blendfile(infile)
 
         deps_repo = file_usage.dependencies_of_current_blendfile(blendfiles)
-        file_usage.determine_pack_paths_clustered(deps_repo)
         file_usage.determine_rewriting_needs(deps_repo)
 
         expect_repo = file_usage.FileDependencyRepository(
@@ -126,7 +125,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
         load_blendfile(infile)
 
         deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
-        file_usage.determine_pack_paths_clustered(deps_repo)
 
         expect_repo = file_usage.FileDependencyRepository(
             root_path=pack_root,
@@ -168,7 +166,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
         load_blendfile(infile)
 
         deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
-        file_usage.determine_pack_paths_clustered(deps_repo)
 
         udim_root_dir = pack_root.parent
         pack_udim_root_dir = PurePath("_outside_project/needs_rewriting")

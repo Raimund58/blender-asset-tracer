@@ -39,6 +39,10 @@ class Options:
     # regardless of how they are referenced.
     use_relative_only: bool = False
 
+    # This is the root directory for files that need relocation (i.e. files that
+    # reside outside the project root) The path is relative to the pack root.
+    relocated_root: PurePath = PurePath("_outside_project")
+
 
 @dataclasses.dataclass
 class FileInfo:
@@ -230,7 +234,7 @@ def dependencies_of_current_blendfile(
     with cache_autoclear():
         deps_repo = FileDependencyRepository(root_path=root_path)
         determine_dependencies(deps_repo, options)
-        determine_pack_paths_clustered(deps_repo)
+        determine_pack_paths_clustered(deps_repo, options)
         determine_rewriting_needs(deps_repo)
 
     return deps_repo
@@ -301,7 +305,10 @@ def determine_dependencies(
     bpy.data.file_path_foreach(_visit_path_usage)
 
 
-def determine_pack_paths_clustered(repo: FileDependencyRepository) -> None:
+def determine_pack_paths_clustered(
+    repo: FileDependencyRepository,
+    options: Options = Options(),
+) -> None:
     """Update all the files in the repository so they know their path in the pack.
 
     Sets file_info.relpath_in_pack for each file in repo.file_infoes.
@@ -309,9 +316,6 @@ def determine_pack_paths_clustered(repo: FileDependencyRepository) -> None:
     This determines clusters of out-of-project paths, so that each cluster can
     be stored in as short a path as possible.
     """
-
-    # This is the root directory (relative to the project root in the pack).
-    relocated_root = PurePath("_outside_project")
 
     # Cluster all paths that need relocation, in order to determine shorter packed paths.
     abs_paths = [
@@ -329,6 +333,7 @@ def determine_pack_paths_clustered(repo: FileDependencyRepository) -> None:
     # Shorten the cluster roots, keeping in mind that they should remain unique.
     shorten_cluster_map = _shorten_paths(list(clusters.keys()))
 
+    relocated_root = options.relocated_root
     for cluster_root, relpaths in clusters.items():
         short_root = shorten_cluster_map[cluster_root]
         for relpath in relpaths:
@@ -375,7 +380,10 @@ def _shorten_paths(paths: list[Path]) -> dict[Path, Path]:
     return {orig: short for short, orig in shortened_prefixes.items()}
 
 
-def determine_pack_paths_simple(repo: FileDependencyRepository) -> None:
+def determine_pack_paths_simple(
+    repo: FileDependencyRepository,
+    options: Options = Options(),
+) -> None:
     """Update all the files in the repository so they know their path in the pack.
 
     Sets file_info.relpath_in_pack for each file in repo.file_infoes.
@@ -383,9 +391,7 @@ def determine_pack_paths_simple(repo: FileDependencyRepository) -> None:
     This simply puts the files into "./_outside_project/{absolute path}".
     """
 
-    # This is the root directory (relative to the project root in the pack).
-    relocated_root = Path("_outside_project")
-
+    relocated_root = options.relocated_root
     for abs_path, file_info in repo.file_infoes.items():
         if not file_info.needs_relocation:
             continue

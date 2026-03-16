@@ -12,7 +12,9 @@ _my_dir = Path(__file__).resolve().parent
 blendfiles = _my_dir / "blendfiles"
 
 
-class FileUsageTests(unittest.TestCase):
+class FileBasedIntegrationTests(unittest.TestCase):
+    """Test cases that simply load a file and inspect it reported FileInfoes."""
+
     def tearDown(self) -> None:
         file_usage.cache_clear()
 
@@ -267,6 +269,57 @@ class FileUsageTests(unittest.TestCase):
                 {symlinked_dir / rel_path for rel_path in orig_paths},
                 set(deps_repo.file_infoes.keys()),
             )
+
+    def test_rewrite_sequence(self):
+        pack_root = blendfiles / "subdir"
+        infile = pack_root / "image_sequence_dir_up.blend"
+
+        # Use a non-standard relocation root, to see if that works too.
+        bat_options = file_usage.Options(relocated_root=PurePath("_relocated"))
+
+        imgseq_root_dir = pack_root.parent / "imgseq"
+        pack_imgseq_dir = bat_options.relocated_root / "imgseq"
+
+        load_blendfile(infile)
+        deps_repo = file_usage.dependencies_of_current_blendfile(
+            pack_root, options=bat_options
+        )
+
+        # Construct the expected file infoes.
+        expect_file_infoes = {
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                relpath_in_pack=PurePath("image_sequence_dir_up.blend"),
+                references={None},
+                needs_path_rewriting=True,
+                rewrite_rules={imgseq_root_dir: pack_imgseq_dir},
+            )
+        }
+        for name in (
+            "000210.png",
+            "000211.png",
+            "000212.png",
+            "000213.png",
+            "000214.png",
+        ):
+            img_path = imgseq_root_dir / name
+            expect_file_infoes[img_path] = file_usage.FileInfo(
+                source_path=img_path,
+                relpath_in_pack=pack_imgseq_dir / name,
+                references={None},
+                needs_path_rewriting=False,
+                needs_relocation=True,
+            )
+
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes=expect_file_infoes,
+        )
+
+        # Convert to dictionary to make the test differ work for us.
+        self.maxDiff = None
+        self.assertEqual(dataclasses.asdict(expect_repo), dataclasses.asdict(deps_repo))
 
 
 class PackedAssetsTest(unittest.TestCase):

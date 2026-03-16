@@ -511,6 +511,28 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
+    def test_particle_cache_with_ignore_glob(self):
+        pack_root = blendfiles / "T55539-particles"
+        infile = pack_root / "particle.blend"
+        load_blendfile(infile)
+
+        bat_options = file_usage.Options(ignore_globs={"*.bphys"})
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root, bat_options)
+
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes={
+                # Just the source file, not the physics cache files.
+                infile: file_usage.FileInfo(
+                    source_path=infile,
+                    relpath_in_pack=PurePath(infile.name),
+                    references={None},
+                )
+            },
+        )
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
 
 class PackedAssetsTest(unittest.TestCase):
     """Test 'archive libraries' for 'packed assets'.

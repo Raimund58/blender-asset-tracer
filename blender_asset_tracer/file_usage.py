@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import fnmatch
 import functools
 import os.path
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 from pathlib import Path, PurePath
 from typing import Any
 
@@ -42,6 +43,14 @@ class Options:
     # This is the root directory for files that need relocation (i.e. files that
     # reside outside the project root) The path is relative to the pack root.
     relocated_root: PurePath = PurePath("_outside_project")
+
+    # Globs on filenames that should be ignored by BAT.
+    #
+    # Matching is only done on the filename itself, not the full path.
+    #
+    # Can be used to exclude things like Alembic files ('*.abc') or legacy
+    # particle system caches ('*.bphys').
+    ignore_globs: set[str] = dataclasses.field(default_factory=set)
 
 
 @dataclasses.dataclass
@@ -327,6 +336,30 @@ def determine_dependencies(
         return None
 
     bpy.data.file_path_foreach(_visit_path_usage)
+
+    # Step 3: remove all entries that should be ignored. This is easier to do as
+    # a post-process than to weave all the 'ignore' options into the code above.
+    if options.ignore_globs:
+        # Ensure the globs are all lower-case, as the comparison should be done
+        # case-insensitively.
+        globs = [glob.lower() for glob in options.ignore_globs]
+        to_remove = {
+            path
+            for path in deps_repo.file_infoes.keys()
+            if _filename_matches_any_glob(path.name.lower(), globs)
+        }
+        for path in to_remove:
+            del deps_repo.file_infoes[path]
+
+
+def _filename_matches_any_glob(file_name: str, globs: Iterable[str]) -> bool:
+    """Return whether the filename matches any of the globs.
+
+    Comparison is done case-sensitively regardless of OS. The caller should
+    transform the file name and the globs to lower case if case-insensitive
+    comparisons are needed.
+    """
+    return any(fnmatch.fnmatchcase(file_name, glob) for glob in globs)
 
 
 def determine_pack_paths_clustered(

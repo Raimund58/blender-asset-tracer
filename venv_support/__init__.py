@@ -23,7 +23,7 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
     import subprocess
 
     blender_exe = _find_blender_exe(script_path)
-    args = (
+    args = [
         blender_exe,
         "-b",
         "--factory-startup",
@@ -32,7 +32,13 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
         "--python-use-system-env",
         "-P",
         str(script_path),
-    )
+    ]
+
+    # Forward CLI arguments to the re-run of the script in Blender.
+    if len(sys.argv) > 1:
+        args.append("--")
+        args.extend(sys.argv[1:])
+
     print(f"{script_path.stem}: Running via Blender:")
     print(f"{script_path.stem}: \033[97m{shlex.join(args)}\033[0m")
     proc = subprocess.run(args)

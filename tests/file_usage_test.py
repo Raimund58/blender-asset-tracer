@@ -248,7 +248,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 # Copy the file to the temporary project, under a hashed name.
                 # This will break Blendfile linking.
                 real_file_path = real_file_dir / hashed_name
-                print(f"Copy {blendfiles / orig_path} → {real_file_path}")
                 shutil.copy(blendfiles / orig_path, real_file_path)
 
                 # Create a symlink to the above file, in such a way that it
@@ -257,7 +256,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 symlink = symlinked_dir / orig_path
                 symlink.parent.mkdir(parents=True, exist_ok=True)
                 symlink.symlink_to(real_file_path)
-                print(f"symlink {symlink} → {real_file_path}")
 
             # Investigate the symlinked directory structure.
             load_blendfile(symlinked_dir / "subdir/doubly_linked_up.blend")

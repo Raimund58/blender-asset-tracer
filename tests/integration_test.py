@@ -433,6 +433,46 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
+    def test_pack_ies_external(self):
+        pack_root = blendfiles / "ies-lamp"
+        infile = pack_root / "ies_scene.blend"
+        load_blendfile(infile)
+
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
+
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes={
+                infile: file_usage.FileInfo(
+                    source_path=infile,
+                    relpath_in_pack=PurePath(infile.name),
+                    references={None},
+                    needs_path_rewriting=True,
+                    rewrite_rules={
+                        blendfiles / "ies-lamp-external-assets": PurePath(
+                            "_outside_project/ies-lamp-external-assets"
+                        ),
+                    },
+                ),
+                pack_root / "texture_ies/star.ies": file_usage.FileInfo(
+                    source_path=pack_root / "texture_ies/star.ies",
+                    relpath_in_pack=PurePath("texture_ies/star.ies"),
+                    references={None},
+                ),
+                blendfiles / "ies-lamp-external-assets/star.ies": file_usage.FileInfo(
+                    source_path=blendfiles / "ies-lamp-external-assets/star.ies",
+                    relpath_in_pack=PurePath(
+                        "_outside_project/ies-lamp-external-assets/star.ies"
+                    ),
+                    references={None},
+                    needs_relocation=True,
+                ),
+            },
+        )
+
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
 
 class PackedAssetsTest(unittest.TestCase):
     """Test 'archive libraries' for 'packed assets'.

@@ -401,6 +401,38 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
+    def test_relative_only(self) -> None:
+        pack_root = blendfiles
+        infile = pack_root / "absolute_path.blend"
+        load_blendfile(infile)
+
+        bat_options = file_usage.Options(use_relative_only=True)
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root, bat_options)
+
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes={
+                infile: file_usage.FileInfo(
+                    source_path=infile,
+                    relpath_in_pack=PurePath(infile.name),
+                    references={None},
+                ),
+                pack_root
+                / "textures/Bricks/brick_dotted_04-color.jpg": file_usage.FileInfo(
+                    source_path=pack_root / "textures/Bricks/brick_dotted_04-color.jpg",
+                    relpath_in_pack=PurePath(
+                        "textures/Bricks/brick_dotted_04-color.jpg"
+                    ),
+                    references={None},
+                ),
+                # The other image shouldn't be here, as it refers to
+                # 'buildings_roof_04-color.png' by absolute path.
+            },
+        )
+
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
 
 class PackedAssetsTest(unittest.TestCase):
     """Test 'archive libraries' for 'packed assets'.

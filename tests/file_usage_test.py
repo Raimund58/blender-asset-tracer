@@ -1,4 +1,6 @@
 import dataclasses
+import shutil
+import tempfile
 import unittest
 from pathlib import Path, PurePath
 
@@ -25,7 +27,7 @@ class FileUsageTests(unittest.TestCase):
         packed_lib_path = blendfiles / "A.blend"
         self.assertNotIn(packed_lib_path, deps_repo.file_infoes)
 
-    def test_strategise_no_rewrite_required(self) -> None:
+    def test_no_rewrite_required(self) -> None:
         infile = blendfiles / "doubly_linked.blend"
         load_blendfile(infile)
 
@@ -195,6 +197,76 @@ class FileUsageTests(unittest.TestCase):
         # Convert to dictionary to make the test differ work for us.
         self.maxDiff = None
         self.assertEqual(dataclasses.asdict(expect_repo), dataclasses.asdict(deps_repo))
+
+    def test_symlinked_files(self):
+        """Test that symlinks are NOT resolved.
+
+        A symlinked asset should be treated as if it were really at that
+        location. Symlinks should NOT be resolved.
+        """
+
+        # This is the original structure when packing subdir/doubly_linked_up.blend:
+        #   .
+        #   ├── basic_file.blend
+        #   ├── linked_cube.blend
+        #   ├── material_textures.blend
+        #   ├── subdir
+        #   │   └── doubly_linked_up.blend
+        #   └── textures
+        #       └── Bricks
+        #           ├── brick_dotted_04-bump.jpg
+        #           └── brick_dotted_04-color.jpg
+
+        # This test copies the files to a temporary location and renames them,
+        # then recreates the above structure with symlinks. Packing the symlinks
+        # should be no different than packing the originals.
+
+        orig_paths = [
+            Path("basic_file.blend"),
+            Path("linked_cube.blend"),
+            Path("material_textures.blend"),
+            Path("subdir/doubly_linked_up.blend"),
+            Path("textures/Bricks/brick_dotted_04-bump.jpg"),
+            Path("textures/Bricks/brick_dotted_04-color.jpg"),
+        ]
+
+        import hashlib
+
+        with tempfile.TemporaryDirectory(suffix="-bat-symlink") as tmpdir_str:
+            tmpdir = Path(tmpdir_str)
+
+            real_file_dir = tmpdir / "real"
+            symlinked_dir = tmpdir / "symlinked"
+
+            real_file_dir.mkdir()
+            symlinked_dir.mkdir()
+
+            for orig_path in orig_paths:
+                hashed_name = hashlib.new("md5", bytes(orig_path)).hexdigest()
+                # Copy the file to the temporary project, under a hashed name.
+                # This will break Blendfile linking.
+                real_file_path = real_file_dir / hashed_name
+                print(f"Copy {blendfiles / orig_path} → {real_file_path}")
+                shutil.copy(blendfiles / orig_path, real_file_path)
+
+                # Create a symlink to the above file, in such a way that it
+                # restores the original directory structure, and thus repairs
+                # the Blendfile linking.
+                symlink = symlinked_dir / orig_path
+                symlink.parent.mkdir(parents=True, exist_ok=True)
+                symlink.symlink_to(real_file_path)
+                print(f"symlink {symlink} → {real_file_path}")
+
+            # Investigate the symlinked directory structure.
+            load_blendfile(symlinked_dir / "subdir/doubly_linked_up.blend")
+            deps_repo = file_usage.dependencies_of_current_blendfile(blendfiles)
+
+            self.assertEqual(
+                # The files should be referenced from the root dir of the
+                # symlinked 'project', with the unresolved relative paths.
+                {symlinked_dir / rel_path for rel_path in orig_paths},
+                set(deps_repo.file_infoes.keys()),
+            )
 
 
 class PackedAssetsTest(unittest.TestCase):

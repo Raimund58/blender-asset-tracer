@@ -473,6 +473,44 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
+    def test_particle_cache(self):
+        """
+        Particle caches are special, because Blender only reports the
+        directory, and not each file it uses in that directory.
+        """
+
+        pack_root = blendfiles / "T55539-particles"
+        infile = pack_root / "particle.blend"
+        load_blendfile(infile)
+
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
+
+        file_infoes = {
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                relpath_in_pack=PurePath(infile.name),
+                references={None},
+            )
+        }
+
+        # The one directory that Blender reports should be 'exploded' into all files.
+        bphys_dir = pack_root / "blendcache_particle"
+        for bphys_file in bphys_dir.glob("*.bphys"):
+            assert bphys_file.is_absolute()
+            file_infoes[bphys_file] = file_usage.FileInfo(
+                source_path=bphys_file,
+                relpath_in_pack=PurePath(bphys_file.relative_to(pack_root)),
+                references={None},
+            )
+
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes=file_infoes,
+        )
+
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
 
 class PackedAssetsTest(unittest.TestCase):
     """Test 'archive libraries' for 'packed assets'.

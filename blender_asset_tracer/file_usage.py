@@ -136,7 +136,7 @@ class FileDependencyRepository:
             raise
 
 
-def _deps_repo_add_file(
+def _deps_repo_add_path(
     deps_repo: FileDependencyRepository,
     reported_path: Path,
     *,
@@ -149,6 +149,22 @@ def _deps_repo_add_file(
     :param used_by_library: the Library data-block (or None, if the current
        blend file) that uses this file.
     """
+
+    # Handle directory paths. Only paths that exist can be checked for 'directoryness'.
+    if reported_path.is_dir():
+        for file_path in reported_path.rglob("*", recurse_symlinks=True):
+            if file_path.is_dir():
+                # The rglob() should already go in there and iterate over the
+                # files too, so we can just skip directories here.
+                continue
+
+            _deps_repo_add_file_single(
+                deps_repo,
+                abspath=file_path,
+                reported_path=None,
+                used_by_library=used_by_library,
+            )
+        return
 
     # Detect file paths that actually represent multiple files.
     #
@@ -190,6 +206,9 @@ def _deps_repo_add_file_single(
     reported_path: Path | None,
     used_by_library: BlendFile,
 ) -> FileInfo:
+    if abspath.exists():
+        assert abspath.is_file(), f"{abspath} is not a file"
+
     try:
         file_info = deps_repo.file_infoes[abspath]
     except KeyError:
@@ -262,7 +281,7 @@ def determine_dependencies(
     # Add the current blend file itself.
     source_file = library_abspath(None)
     deps_repo.packed_source_file = source_file
-    _deps_repo_add_file(deps_repo, source_file, used_by_library=None)
+    _deps_repo_add_path(deps_repo, source_file, used_by_library=None)
 
     # Step 1: find all inter-blendfile relations.
     for used_id, ids_using_some_id in bpy.data.user_map().items():
@@ -281,7 +300,7 @@ def determine_dependencies(
                 continue
 
             # id_user_lib_path = library_abspath(used_library)
-            _deps_repo_add_file(
+            _deps_repo_add_path(
                 deps_repo,
                 used_lib_path,
                 used_by_library=id_user.library,
@@ -304,7 +323,7 @@ def determine_dependencies(
             return None
 
         abspath = path_absolute(path, library=owner_id.library)
-        _deps_repo_add_file(deps_repo, abspath, used_by_library=owner_id.library)
+        _deps_repo_add_path(deps_repo, abspath, used_by_library=owner_id.library)
         return None
 
     bpy.data.file_path_foreach(_visit_path_usage)

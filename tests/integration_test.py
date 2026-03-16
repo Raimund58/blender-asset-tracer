@@ -327,6 +327,40 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
+    def test_missing_files(self):
+        infile = blendfiles / "missing_textures.blend"
+
+        load_blendfile(infile)
+        deps_repo = file_usage.dependencies_of_current_blendfile(blendfiles)
+
+        tex_dir = blendfiles / "textures"
+        missing_tex_1 = tex_dir / "HDRI/Myanmar/Golden Palace 2, Old Bagan-1k.exr"
+        missing_tex_2 = tex_dir / "Textures/Marble/marble_decoration-color.png"
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=blendfiles,
+            packed_source_file=infile,
+            file_infoes={
+                infile: file_usage.FileInfo(
+                    source_path=infile,
+                    relpath_in_pack=PurePath("missing_textures.blend"),
+                    references={None},
+                ),
+                # These files are missing. They should still be listed in the dependencies, though.
+                missing_tex_1: file_usage.FileInfo(
+                    source_path=missing_tex_1,
+                    relpath_in_pack=PurePath(missing_tex_1.relative_to(blendfiles)),
+                    references={None},
+                ),
+                missing_tex_2: file_usage.FileInfo(
+                    source_path=missing_tex_2,
+                    relpath_in_pack=PurePath(missing_tex_2.relative_to(blendfiles)),
+                    references={None},
+                ),
+            },
+        )
+
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
 
 class PackedAssetsTest(unittest.TestCase):
     """Test 'archive libraries' for 'packed assets'.

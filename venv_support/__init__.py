@@ -65,15 +65,25 @@ def _is_inside_blender() -> bool:
 
 
 def _find_blender_exe(script_path: Path) -> str:
-    """Find the Blender executable, either from $PATH or sys.argv[1]."""
-    blender_exe: str | None
-    if len(sys.argv) > 1:
-        blender_exe = sys.argv[1]
-    else:
-        blender_exe = shutil.which("blender")
-    if blender_exe is None:
-        msg = (
-            f"Cannot find blender executable, use: {script_path.name} /path/to/blender"
+    """Find the Blender executable, either from $PATH or $BAT_BLENDER."""
+    bat_blender_env = os.environ.get("BAT_BLENDER") or ""
+    blender_exe = shutil.which(bat_blender_env or "blender")
+    if blender_exe is not None:
+        return blender_exe
+
+    if bat_blender_env:
+        print(
+            f"Cannot find blender executable, tried {bat_blender_env} from BAT_BLENDER:"
         )
-        raise SystemExit(msg)
-    return blender_exe
+    else:
+        print("Cannot find blender executable, set BAT_BLENDER:")
+
+    if sys.platform == "win32":
+        print(
+            r'  SET BAT_BLENDER="C:\Program Files\Blender Foundation\Blender 5.1\blender"'
+        )
+        print(f"python3 {script_path.name} --help")
+    else:
+        print(f"env BAT_BLENDER=/path/to/blender python3 {script_path.name} --help")
+
+    raise SystemExit(47)

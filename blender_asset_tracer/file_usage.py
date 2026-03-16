@@ -63,8 +63,13 @@ class FileInfo:
     # Indicator that this file needs relocation.
     #
     # `relpath_in_pack` is only allowed to be None if this is True.
-    # This field remains set, even after `relpath_in_pack` is determined for
-    # relocated files as well.
+    #
+    # Even after `relpath_in_pack` is determined for relocated files, this field
+    # can remain set to True.
+    #
+    # The only reason it will be reset to False is when the file does not
+    # actually exist on disk (because then there is nothing to relocate). This
+    # prevents the path rewriting of files that only refer to missing files.
     needs_relocation: bool = False
 
     # Indicator that this file needs path rewriting.
@@ -581,8 +586,22 @@ def determine_rewriting_needs(repo: FileDependencyRepository) -> None:
 
     # Step 1: find all libraries that need rewriting.
     for file_info in repo.file_infoes.values():
-        if file_info.needs_relocation:
-            libraries_needing_rewriting |= file_info.references
+        if not file_info.needs_relocation:
+            continue
+
+        # Check whether the file actually exists on disk. There is no need to do
+        # path rewriting when a file doesn't exist anyway. This _could_ be seen
+        # as security issue, as referencing a missing file could make Blender
+        # load an out-of-project file on the farm. However, the
+        # Options(use_relative_only=True) option already makes that possible.
+        if not file_info.source_path.exists():
+            assert file_info.relpath_in_pack is not None, (
+                "This code should only be executed once relpack_in_pack is determined"
+            )
+            file_info.needs_relocation = False
+            continue
+
+        libraries_needing_rewriting |= file_info.references
 
     # Step 2: find the file_info instances for those libraries, and mark them.
     for library in libraries_needing_rewriting:

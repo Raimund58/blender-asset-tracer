@@ -361,6 +361,49 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
+    def test_missing_files_skip_rewriting(self):
+        """
+        When a file would need path rewriting, but only for files that are
+        missing, the path rewriting should be skipped.
+        """
+        pack_root = blendfiles / "subdir"
+        infile = pack_root / "missing_textures_dir_up.blend"
+
+        load_blendfile(infile)
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
+
+        tex_dir = blendfiles / "textures"
+        tex_dir_in_pack = PurePath("_outside_project/textures")
+        missing_tex_1 = "HDRI/Myanmar/Golden Palace 2, Old Bagan-1k.exr"
+        missing_tex_2 = "Textures/Marble/marble_decoration-color.png"
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes={
+                infile: file_usage.FileInfo(
+                    source_path=infile,
+                    relpath_in_pack=PurePath("missing_textures_dir_up.blend"),
+                    references={None},
+                    needs_path_rewriting=False,  # Would need it if the files were not missing.
+                ),
+                # These files are missing. They should still be listed in the dependencies.
+                tex_dir / missing_tex_1: file_usage.FileInfo(
+                    source_path=tex_dir / missing_tex_1,
+                    relpath_in_pack=tex_dir_in_pack / missing_tex_1,
+                    references={None},
+                    needs_relocation=False,  # Because the file is missing.
+                ),
+                tex_dir / missing_tex_2: file_usage.FileInfo(
+                    source_path=tex_dir / missing_tex_2,
+                    relpath_in_pack=tex_dir_in_pack / missing_tex_2,
+                    references={None},
+                    needs_relocation=False,  # Because the file is missing.
+                ),
+            },
+        )
+
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
 
 class PackedAssetsTest(unittest.TestCase):
     """Test 'archive libraries' for 'packed assets'.

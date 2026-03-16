@@ -18,6 +18,22 @@ class FileBasedIntegrationTests(unittest.TestCase):
     def tearDown(self) -> None:
         file_usage.cache_clear()
 
+    def assertEqualFileDepsInfo(
+        self,
+        expect_repo: file_usage.FileDependencyRepository,
+        actual_repo: file_usage.FileDependencyRepository,
+    ) -> None:
+        # Convert to dictionary to make the unittest 'differ' work for us.
+        expect_repo_dict = dataclasses.asdict(expect_repo)
+        actual_repo_dict = dataclasses.asdict(actual_repo)
+
+        old_maxdiff = self.maxDiff
+        self.maxDiff = None
+        try:
+            self.assertEqual(expect_repo_dict, actual_repo_dict)
+        finally:
+            self.maxDiff = old_maxdiff
+
     def test_packed_libraries(self) -> None:
         infile = blendfiles / "74871-packed-libraries.blend"
         load_blendfile(infile)
@@ -100,9 +116,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             },
         )
 
-        # Convert to dictionary to make the test differ work for us.
-        self.maxDiff = None
-        self.assertEqual(dataclasses.asdict(expect_repo), dataclasses.asdict(deps_repo))
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
     def test_sequence_udim_no_rewriting(self) -> None:
         # UDIM tiles are special, because the filename itself has a <UDIM>
@@ -144,9 +158,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             },
         )
 
-        # Convert to dictionary to make the test differ work for us.
-        self.maxDiff = None
-        self.assertEqual(dataclasses.asdict(expect_repo), dataclasses.asdict(deps_repo))
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
     def test_sequence_udim_with_rewriting(self) -> None:
         # UDIM tiles are special, because the filename itself has a <UDIM>
@@ -196,9 +208,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             },
         )
 
-        # Convert to dictionary to make the test differ work for us.
-        self.maxDiff = None
-        self.assertEqual(dataclasses.asdict(expect_repo), dataclasses.asdict(deps_repo))
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
     def test_symlinked_files(self):
         """Test that symlinks are NOT resolved.
@@ -315,9 +325,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             file_infoes=expect_file_infoes,
         )
 
-        # Convert to dictionary to make the test differ work for us.
-        self.maxDiff = None
-        self.assertEqual(dataclasses.asdict(expect_repo), dataclasses.asdict(deps_repo))
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
 
 class PackedAssetsTest(unittest.TestCase):

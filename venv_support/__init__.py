@@ -23,16 +23,22 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
     import subprocess
 
     blender_exe = _find_blender_exe(script_path)
-    args = [
-        blender_exe,
-        "-b",
-        "--factory-startup",
-        "--python-exit-code",
-        "47",
-        "--python-use-system-env",
-        "-P",
-        str(script_path),
-    ]
+
+    args = [blender_exe]
+    if not os.environ.get("BAT_BLENDER_VERBOSE", ""):
+        args.append("-q")
+
+    args.extend(
+        [
+            "-b",
+            "--factory-startup",
+            "--python-exit-code",
+            "47",
+            "--python-use-system-env",
+            "-P",
+            str(script_path),
+        ]
+    )
 
     # Forward CLI arguments to the re-run of the script in Blender.
     if len(sys.argv) > 1:

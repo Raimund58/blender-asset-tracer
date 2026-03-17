@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path, PurePath
+from typing import Any
 
 import bpy  # pyright: ignore[reportMissingImports]
 
@@ -23,6 +24,12 @@ class FileBasedIntegrationTests(unittest.TestCase):
         expect_repo: file_usage.FileDependencyRepository,
         actual_repo: file_usage.FileDependencyRepository,
     ) -> None:
+        """Assert that the two repositories are equal."""
+
+        # Check the list of files first. If there's a difference in those, the
+        # full diff of both repositories is going to get rather hard to read.
+        self.assertEqualFileList(expect_repo, actual_repo)
+
         # Convert to dictionary to make the unittest 'differ' work for us.
         expect_repo_dict = dataclasses.asdict(expect_repo)
         actual_repo_dict = dataclasses.asdict(actual_repo)
@@ -33,6 +40,30 @@ class FileBasedIntegrationTests(unittest.TestCase):
             self.assertEqual(expect_repo_dict, actual_repo_dict)
         finally:
             self.maxDiff = old_maxdiff
+
+    def assertEqualFileList(
+        self,
+        expect_repo: file_usage.FileDependencyRepository,
+        actual_repo: file_usage.FileDependencyRepository,
+    ) -> None:
+        """Assert that the two repositories contain the same set of files."""
+        expect_files = set(expect_repo.file_infoes.keys())
+        actual_files = set(actual_repo.file_infoes.keys())
+
+        # Implement the set comparison ourselves, so that the difference can be shown sorted.
+        missing = expect_files - actual_files
+        unexpected = actual_files - expect_files
+
+        failure_lines: list[Any] = []
+        if missing:
+            failure_lines.append("Expected items that are missing:")
+            failure_lines.extend(sorted(missing))
+        if unexpected:
+            failure_lines.append("Seen items that are not expected:")
+            failure_lines.extend(sorted(unexpected))
+
+        if failure_lines:
+            self.fail("\n".join(str(line) for line in failure_lines))
 
     def test_packed_libraries(self) -> None:
         infile = blendfiles / "74871-packed-libraries.blend"
@@ -580,6 +611,73 @@ class FileBasedIntegrationTests(unittest.TestCase):
             file_infoes[abc_file] = file_usage.FileInfo(
                 source_path=abc_file,
                 relpath_in_pack=PurePath(abc_file.relative_to(pack_root)),
+                references={None},
+            )
+
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes=file_infoes,
+        )
+
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
+    def test_smoke_cache_uni(self):
+        pack_root = blendfiles / "T55542-smoke"
+        infile = pack_root / "smoke_cache_uni.blend"
+        load_blendfile(infile)
+
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
+
+        file_infoes = {
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                relpath_in_pack=PurePath(infile.name),
+                references={None},
+            )
+        }
+
+        uni_dir = pack_root / "cache_smoke_uni"
+        for file in uni_dir.rglob("*"):
+            if not file.is_file():
+                # Skip directories.
+                continue
+            file_infoes[file] = file_usage.FileInfo(
+                source_path=file,
+                relpath_in_pack=PurePath(file.relative_to(pack_root)),
+                references={None},
+            )
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes=file_infoes,
+        )
+
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
+    def test_smoke_cache_vdb(self):
+        pack_root = blendfiles / "T55542-smoke"
+        infile = pack_root / "smoke_cache_vdb.blend"
+        load_blendfile(infile)
+
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
+
+        file_infoes = {
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                relpath_in_pack=PurePath(infile.name),
+                references={None},
+            )
+        }
+
+        vdb_dir = pack_root / "cache_smoke_vdb"
+        for file in vdb_dir.rglob("*"):
+            if not file.is_file():
+                # Skip directories.
+                continue
+            file_infoes[file] = file_usage.FileInfo(
+                source_path=file,
+                relpath_in_pack=PurePath(file.relative_to(pack_root)),
                 references={None},
             )
 

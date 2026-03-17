@@ -559,6 +559,38 @@ class FileBasedIntegrationTests(unittest.TestCase):
         )
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
+    def test_alembic_sequence(self):
+        self.skipTest("see Blender issue #155774")
+        pack_root = blendfiles / "alembic"
+        infile = pack_root / "alembic-sequence-user.blend"
+        load_blendfile(infile)
+
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
+
+        file_infoes = {
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                relpath_in_pack=PurePath(infile.name),
+                references={None},
+            )
+        }
+
+        for abc_file in pack_root.glob("clothsim.*.abc"):
+            assert abc_file.is_absolute()
+            file_infoes[abc_file] = file_usage.FileInfo(
+                source_path=abc_file,
+                relpath_in_pack=PurePath(abc_file.relative_to(pack_root)),
+                references={None},
+            )
+
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes=file_infoes,
+        )
+
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
 
 class PackedAssetsTest(unittest.TestCase):
     """Test 'archive libraries' for 'packed assets'.

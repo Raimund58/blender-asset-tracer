@@ -7,7 +7,15 @@ Blender Asset Tracer, a.k.a. BAT, is a tool for finding dependencies of blend fi
 ## Known Limitations
 
 - BAT v2 needs Blender 5.1 or newer to function.
-- Blender 5.1.0 will not handle legacy particle system cache files correctly. This is fixed in [blender#155720](https://projects.blender.org/blender/blender/pulls/155720), which will be part of Blender 5.1.1.
+- Blender 5.1.0 does not report legacy particle system cache files correctly. This is fixed in [blender#155720](https://projects.blender.org/blender/blender/pulls/155720), which will be part of Blender 5.1.1.
+- Blender 5.1.0 does not report Alembic file sequences correctly, see [#155774: Alembic: sequences are not reported correctly by cache_file_foreach_path()](https://projects.blender.org/blender/blender/issues/155774). For now, BAT does not handle such files correctly either.
+
+To test cases like the above limitations, run the following in Blender's Python console:
+
+```py
+>>> {k: v for (k, v) in D.file_path_map().items() if v}
+{bpy.data.objects['Plane']: {'//meshcache.mdd'}}
+```
 
 ## Differences between BAT v1 and v2
 

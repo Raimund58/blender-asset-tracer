@@ -94,7 +94,7 @@ def _find_blender_exe(script_path: Path) -> str:
         print(
             r'  SET BAT_BLENDER="C:\Program Files\Blender Foundation\Blender 5.1\blender"'
         )
-        print(f"python3 {script_path.name} --help")
+        print(f"python {script_path.name} --help")
     else:
         print(f"env BAT_BLENDER=/path/to/blender python3 {script_path.name} --help")
 

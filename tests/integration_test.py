@@ -510,6 +510,11 @@ class FileBasedIntegrationTests(unittest.TestCase):
         directory, and not each file it uses in that directory.
         """
 
+        if bpy.app.version <= (5, 1, 0) and bpy.app.version_cycle == "release":
+            self.skipTest(
+                "Blender 5.1.0 has known bug #155720 that makes this test fail"
+            )
+
         pack_root = blendfiles / "T55539-particles"
         infile = pack_root / "particle.blend"
         load_blendfile(infile)
@@ -543,6 +548,11 @@ class FileBasedIntegrationTests(unittest.TestCase):
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
     def test_particle_cache_with_ignore_glob(self) -> None:
+        if bpy.app.version <= (5, 1, 0) and bpy.app.version_cycle == "release":
+            self.skipTest(
+                "Blender 5.1.0 has known bug #155720 that makes this test fail"
+            )
+
         pack_root = blendfiles / "T55539-particles"
         infile = pack_root / "particle.blend"
         load_blendfile(infile)

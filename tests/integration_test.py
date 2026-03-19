@@ -238,7 +238,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_symlinked_files(self):
+    def test_symlinked_files(self) -> None:
         """Test that symlinks are NOT resolved.
 
         A symlinked asset should be treated as if it were really at that
@@ -306,7 +306,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 set(deps_repo.file_infoes.keys()),
             )
 
-    def test_rewrite_sequence(self):
+    def test_rewrite_sequence(self) -> None:
         pack_root = blendfiles / "subdir"
         infile = pack_root / "image_sequence_dir_up.blend"
 
@@ -355,7 +355,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_missing_files(self):
+    def test_missing_files(self) -> None:
         infile = blendfiles / "missing_textures.blend"
 
         load_blendfile(infile)
@@ -389,7 +389,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_missing_files_skip_rewriting(self):
+    def test_missing_files_skip_rewriting(self) -> None:
         """
         When a file would need path rewriting, but only for files that are
         missing, the path rewriting should be skipped.
@@ -464,7 +464,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_pack_ies_external(self):
+    def test_pack_ies_external(self) -> None:
         pack_root = blendfiles / "ies-lamp"
         infile = pack_root / "ies_scene.blend"
         load_blendfile(infile)
@@ -504,7 +504,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_particle_cache(self):
+    def test_particle_cache(self) -> None:
         """
         Particle caches are special, because Blender only reports the
         directory, and not each file it uses in that directory.
@@ -542,7 +542,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_particle_cache_with_ignore_glob(self):
+    def test_particle_cache_with_ignore_glob(self) -> None:
         pack_root = blendfiles / "T55539-particles"
         infile = pack_root / "particle.blend"
         load_blendfile(infile)
@@ -564,7 +564,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
         )
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_alembic(self):
+    def test_alembic(self) -> None:
         pack_root = blendfiles / "alembic"
         infile = pack_root / "alembic-user.blend"
         load_blendfile(infile)
@@ -590,7 +590,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
         )
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_alembic_sequence(self):
+    def test_alembic_sequence(self) -> None:
         self.skipTest("see Blender issue #155774")
         pack_root = blendfiles / "alembic"
         infile = pack_root / "alembic-sequence-user.blend"
@@ -622,7 +622,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_smoke_cache_uni(self):
+    def test_smoke_cache_uni(self) -> None:
         pack_root = blendfiles / "T55542-smoke"
         infile = pack_root / "smoke_cache_uni.blend"
         load_blendfile(infile)
@@ -655,7 +655,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_smoke_cache_vdb(self):
+    def test_smoke_cache_vdb(self) -> None:
         pack_root = blendfiles / "T55542-smoke"
         infile = pack_root / "smoke_cache_vdb.blend"
         load_blendfile(infile)

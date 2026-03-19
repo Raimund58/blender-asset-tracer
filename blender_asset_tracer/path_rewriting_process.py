@@ -15,14 +15,9 @@ from __future__ import annotations
 __all__ = (
     "BackgroundProcessNotRunningError",
     "BackgroundRewriter",
-    "PipeMessage",
-    "PipeMsgType",
-    "RewriteRequest",
 )
 
 import copy
-import dataclasses
-import enum
 import logging
 import multiprocessing.connection
 import os
@@ -40,6 +35,7 @@ from typing import Any, Callable
 
 import bpy  # pyright: ignore[reportMissingImports]
 
+from .path_rewriting_models import PipeMessage, PipeMsgType, RewriteRequest
 from .type_aliases import RewriteRules
 
 logger = logging.getLogger(__name__)
@@ -71,39 +67,6 @@ blender_asset_tracer.path_rewriting_worker.main()
 # So I (Sybren) figure it's better to test with the 'spawn' method, which is
 # also the current default on Windows and macOS.
 _mp_context = multiprocessing.get_context(method="spawn")
-
-
-@dataclasses.dataclass(frozen=True)
-class RewriteRequest:
-    blendfile: Path
-    # The path of this blendfile in the pack, relative to the pack's root:
-    relpath_in_pack: PurePath
-    # Read-only version of the dictionary type RewriteRules.
-    rewrite_rules: tuple[tuple[Path, PurePath], ...]
-    save_to: Path
-
-
-class PipeMsgType(enum.Enum):
-    QUEUE_REWRITE = "queue"
-    """Payload: RewriteRequest"""
-
-    SHUTDOWN = "shutdown"
-    """Payload: None"""
-
-    REPORT_START = "report-start"
-    """Payload: RewriteRequest"""
-
-    REPORT_DONE = "report-done"
-    """Payload: RewriteRequest"""
-
-    REPORT_ERROR = "report-error"
-    """Payload: (RewriteRequest, error message: str)"""
-
-
-@dataclasses.dataclass
-class PipeMessage:
-    msgtype: PipeMsgType
-    payload: Any
 
 
 class BackgroundProcessNotRunningError(Exception):
@@ -200,7 +163,7 @@ class BackgroundRewriter:
         rewrite_request = RewriteRequest(
             blendfile=blendfile,
             relpath_in_pack=relpath_in_pack,
-            rewrite_rules=tuple(rewrite_rules.items()),
+            rewrite_rules=rewrite_rules,
             save_to=save_to,
         )
         if on_file_start:
@@ -210,12 +173,11 @@ class BackgroundRewriter:
         if on_file_error:
             self._on_error_callbacks[rewrite_request] = on_file_error
 
-        self._connection.send(
-            PipeMessage(
-                msgtype=PipeMsgType.QUEUE_REWRITE,
-                payload=rewrite_request,
-            )
-        )
+        msg_as_dict = PipeMessage(
+            msgtype=PipeMsgType.QUEUE_REWRITE,
+            payload=rewrite_request,
+        ).serialize()
+        self._connection.send(msg_as_dict)
 
     @property
     def all_rewrites_done(self) -> bool:
@@ -298,9 +260,10 @@ class BackgroundRewriter:
         self._logger.debug("shutting down")
         self._shutdown_event.set()
 
-        # Send the CANCEL message to shut down the background process.
+        # Send the SHUTDOWN message to shut down the background process.
+        msg_as_dict = PipeMessage(PipeMsgType.SHUTDOWN, None).serialize()
         try:
-            self._connection.send(PipeMessage(PipeMsgType.SHUTDOWN, None))
+            self._connection.send(msg_as_dict)
         except BrokenPipeError:
             # The other side is already shut down, which is fine.
             pass
@@ -345,10 +308,12 @@ class BackgroundRewriter:
             try:
                 if not self._connection.poll():
                     break
-                msg: PipeMessage = self._connection.recv()
+                msg_as_dict = self._connection.recv()
             except (EOFError, BrokenPipeError):
                 # The remote end closed the pipe.
                 break
+
+            msg = PipeMessage.unserialize(msg_as_dict)
 
             # These are the only message types that should be sent from the worker process.
             match msg.msgtype:
@@ -359,7 +324,7 @@ class BackgroundRewriter:
                 case PipeMsgType.REPORT_ERROR:
                     self._handle_msg_report_error(msg.payload)
 
-    def _handle_msg_start_rewrite(self, request: RewriteRequest) -> None:
+    def _handle_msg_start_rewrite(self, request: RewriteRequest | Any) -> None:
         if not isinstance(request, RewriteRequest):
             raise TypeError(
                 f"REPORT_START message has unexpected payload type {type(request)}"
@@ -371,7 +336,7 @@ class BackgroundRewriter:
             return
         self._call_callback(on_start_cb, request)
 
-    def _handle_msg_report_done(self, request: RewriteRequest) -> None:
+    def _handle_msg_report_done(self, request: RewriteRequest | Any) -> None:
         """Handle a 'done' report from the subprocess."""
         self._mark_download_done()
 
@@ -387,7 +352,9 @@ class BackgroundRewriter:
             self._logger.debug("Calling %r(%r)", on_done_cb, request)
             self._call_callback(on_done_cb, request)
 
-    def _handle_msg_report_error(self, report: tuple[RewriteRequest, str]) -> None:
+    def _handle_msg_report_error(
+        self, report: tuple[RewriteRequest, str] | Any
+    ) -> None:
         """Handle an 'error' report from the subprocess."""
         self._mark_download_done()
 

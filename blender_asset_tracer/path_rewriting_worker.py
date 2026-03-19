@@ -25,7 +25,7 @@ if str(_bat_parent_dir) not in sys.path:
     sys.path.append(str(_bat_parent_dir))
 
 from blender_asset_tracer import path_rewriting
-from blender_asset_tracer.path_rewriting_process import (
+from blender_asset_tracer.path_rewriting_models import (
     PipeMessage,
     PipeMsgType,
     RewriteRequest,
@@ -201,6 +201,7 @@ def check_incoming_messages(
             case PipeMsgType.SHUTDOWN:
                 do_shutdown.set()
             case PipeMsgType.QUEUE_REWRITE:
+                assert isinstance(received_msg.payload, RewriteRequest)
                 rewrite_queue.put(received_msg.payload)
 
     return not do_shutdown.is_set()
@@ -220,7 +221,7 @@ def rx_thread_func(
         # Only once that's done should we check the do_shutdown event.
         while connection.poll():
             try:
-                received_msg: PipeMessage = connection.recv()
+                received = connection.recv()
             except (EOFError, OSError):
                 # The Python documentation mentions EOFError, but in
                 # practice I (Sybren) have also seen a ConnectionResetError
@@ -234,6 +235,7 @@ def rx_thread_func(
                 do_shutdown.set()
                 return
 
+            received_msg = PipeMessage.unserialize(received)
             log.debug("received message: %s", received_msg)
             rx_queue.put(received_msg)
 
@@ -252,9 +254,10 @@ def tx_thread_func(
             # Not having anything to transmit is fine.
             continue
 
-        log.debug("TX: sending message %s", queued_msg)
+        queued_dict = queued_msg.serialize()
+        log.debug("TX: sending message %s", queued_dict)
         try:
-            connection.send(queued_msg)
+            connection.send(queued_dict)
         except OSError:
             # The Python documentation doesn't mention any exceptions for
             # the .send() function. In practice, I (Sybren) have seen a

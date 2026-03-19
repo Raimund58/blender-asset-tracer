@@ -5,6 +5,10 @@ description = "Better version of BAT"
 authors = [{ name = "Sybren A. Stüvel", email = "sybren@blender.org" }]
 requires-python = "==3.13.*"
 license = "GPL-3.0-or-later"
+dependencies = [
+    # Tracks Blender's bundled version.
+    "cattrs==25.1.1",
+]
 
 [dependency-groups]
 dev = [

@@ -22,7 +22,8 @@ from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, Callable, Protocol
 
 from . import file_usage, path_rewriting
-from .path_rewriting_process import BackgroundRewriter, RewriteRequest
+from .path_rewriting_models import RewriteRequest
+from .path_rewriting_process import BackgroundRewriter
 
 __all__ = (
     "BATPacker",

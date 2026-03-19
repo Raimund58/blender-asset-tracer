@@ -28,10 +28,8 @@ if str(_my_dir) not in sys.path:
 
 # E402: Import not at top of file, but has to be below the modification sys.path.
 from blender_asset_tracer import file_usage, path_rewriting  # noqa: E402
-from blender_asset_tracer.path_rewriting_process import (
-    BackgroundRewriter,
-    RewriteRequest,
-)
+from blender_asset_tracer.path_rewriting_models import RewriteRequest
+from blender_asset_tracer.path_rewriting_process import BackgroundRewriter
 
 
 @dataclasses.dataclass

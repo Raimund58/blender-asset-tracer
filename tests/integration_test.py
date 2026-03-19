@@ -1,4 +1,5 @@
 import dataclasses
+import itertools
 import shutil
 import tempfile
 import unittest
@@ -691,6 +692,40 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 references={None},
             )
 
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes=file_infoes,
+        )
+
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
+    def test_geonodes_sim_cache(self) -> None:
+        self.skipTest("see Blender issue #155953")
+
+        pack_root = blendfiles / "geometry-nodes-sim"
+        infile = pack_root / "geonodes-sim-cache.blend"
+        load_blendfile(infile)
+
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
+
+        file_infoes = {
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                relpath_in_pack=PurePath(infile.name),
+                references={None},
+            )
+        }
+
+        for file in itertools.chain(
+            pack_root.rglob("*.json"),
+            pack_root.rglob("*.blob"),
+        ):
+            file_infoes[file] = file_usage.FileInfo(
+                source_path=file,
+                relpath_in_pack=PurePath(file.relative_to(pack_root)),
+                references={None},
+            )
         expect_repo = file_usage.FileDependencyRepository(
             root_path=pack_root,
             packed_source_file=infile,

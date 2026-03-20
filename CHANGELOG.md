@@ -3,6 +3,11 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
+# Version 1.23 (2026-03-20)
+
+- Ensure BAT doesn't crash when faced with certain unexpected Geometry Nodes setups. Instead, those nodes are now just ignored.
+
+
 # Version 1.22 (2026-03-20)
 
 - Fix [#104425: Link Chain causes Error performing BAT pack: WinError 32](https://projects.blender.org/studio/flamenco/issues/104425)

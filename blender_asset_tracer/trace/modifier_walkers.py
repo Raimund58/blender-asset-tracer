@@ -28,6 +28,7 @@ import typing
 
 from blender_asset_tracer import blendfile, bpathlib, cdefs
 from blender_asset_tracer.blendfile import iterators
+
 from . import result
 
 log = logging.getLogger(__name__)
@@ -365,15 +366,15 @@ def modifier_nodes(
         b"simulation_bake_directory", return_field=True
     )
 
-    bakes = modifier.get_pointer(b"bakes")
+    bakes = modifier.get_pointer(b"bakes", default=None)
     if not bakes:
         return
 
-    mod_bake_target = modifier.get(b"bake_target")
+    mod_bake_target = modifier.get(b"bake_target", default=None)
 
     for bake_idx, bake in enumerate(iterators.dynamic_array(bakes)):
         # Check for packed data.
-        bake_target = bake.get(b"bake_target")
+        bake_target = bake.get(b"bake_target", default=None)
         if bake_target == cdefs.NODES_MODIFIER_BAKE_TARGET_INHERIT:
             bake_target = mod_bake_target
         if bake_target == cdefs.NODES_MODIFIER_BAKE_TARGET_PACKED:

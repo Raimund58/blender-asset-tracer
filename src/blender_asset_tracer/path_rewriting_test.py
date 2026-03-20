@@ -5,7 +5,7 @@ import hashlib
 import unittest
 from pathlib import Path, PurePath, PurePosixPath
 
-from . import file_usage, path_rewriting
+from . import file_usage, hashing, path_rewriting
 
 _my_dir = Path(__file__).resolve().parent
 _testfile_root = _my_dir.parent / "tests/blendfiles"
@@ -57,13 +57,15 @@ class PathRewritingTest(unittest.TestCase):
 
         # Double-check that the Disk File Hash Service produces the same hash. Otherwise this
         # test will fail in mysterious ways.
+        import bpy  # pyright: ignore[reportMissingImports]
         from _bpy_internal import (  # pyright: ignore[reportMissingImports]
             disk_file_hash_service as dfhs,
         )
 
-        hash_service = dfhs.get_service(path_rewriting._hash_storage_path)
+        hash_storage_path = Path(bpy.app.cachedir) / hashing._hash_storage_cache_path
+        hash_service = dfhs.get_service(hash_storage_path)
         dfhs_file_hash: str = hash_service.get_hash(
-            self.blendfile, path_rewriting._hash_method
+            self.blendfile, hashing._hash_algorithm
         )
         self.assertEqual(
             blend_hash,

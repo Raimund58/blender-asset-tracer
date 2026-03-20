@@ -4,5 +4,15 @@
 __version__ = "2.0.0-beta0"
 
 
+from pathlib import Path
+
+from blender_asset_tracer import cli, venv_support
+
+
 def main_cli() -> None:
-    print("This is BAT!")
+    """Entry point of 'bat' command configured in pyproject.toml."""
+    venv_support.loop_via_blender(cli.cli_main, Path(__file__).resolve())
+
+
+if __name__ == "__main__":
+    main_cli()

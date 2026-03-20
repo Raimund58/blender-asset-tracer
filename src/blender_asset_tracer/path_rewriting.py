@@ -10,11 +10,9 @@ from typing import Any
 
 import bpy  # pyright: ignore[reportMissingImports]
 
-from . import file_usage
+from . import file_usage, hashing
 from .type_aliases import RewriteRules
 
-_hash_storage_path = Path(bpy.app.cachedir) / "bat/path_rewrite_hashes"
-_hash_method = "sha256"
 _rewritten_files_cache_path = Path(bpy.app.cachedir) / "bat/path_rewrite_files"
 
 _logger = logging.getLogger(__name__)
@@ -183,16 +181,9 @@ def _compute_ophash(blendfile: Path, file_info: file_usage.FileInfo) -> str:
     """
     assert file_info.relpath_in_pack is not None, blendfile
 
-    # For now, this is a library internal to Blender. It was made with BAT in mind
-    # though, so once it's seen some production use, it's probably going to be
-    # promoted to a public API.
-    from _bpy_internal import (  # pyright: ignore[reportMissingImports]
-        disk_file_hash_service as dfhs,
-    )
-
     # Compute the file's hash.
-    hash_service = dfhs.get_service(_hash_storage_path)
-    file_hash: str = hash_service.get_hash(blendfile, _hash_method)
+    file_hasher = hashing.get_hasher()
+    file_hash: str = file_hasher(blendfile)
 
     # The file's `relpath_in_pack` is also important, as that determines the
     # relative paths to the files. The destination paths of the rewrite rules
@@ -215,8 +206,12 @@ def _compute_ophash(blendfile: Path, file_info: file_usage.FileInfo) -> str:
         for key, value in file_info.rewrite_rules.items()
     )
 
-    # Combine the file's hash with the rewrite rules to obtain the operation hash.
-    hasher = hashlib.new(_hash_method)
+    # Combine the file's hash with the rewrite rules to obtain the operation
+    # hash.
+    #
+    # This hash algorithm is independent of the hash algo used to compute the
+    # file hash, and so this should NOT reference hashing._hash_algorithm.
+    hasher = hashlib.new("SHA256")
     hasher.update(file_hash.encode())
     hasher.update(b"\0")
     hasher.update(directory_in_pack.encode())

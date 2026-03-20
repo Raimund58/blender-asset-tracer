@@ -58,9 +58,14 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
         args.append("--")
         args.extend(sys.argv[1:])
 
-    print(f"{script_path.stem}: Running via Blender:")
-    print(f"{script_path.stem}: {shlex.join(args)}")
-    print()
+    # Bit of a hack: see if '-d' or '--debug' were passed to BAT, and then show
+    # which command is run. It's a hack because it ignores the distinction
+    # between arguments before and after the BAT sub-command.
+    if {"-d", "--debug"} & set(sys.argv):
+        print(f"{script_path.stem}: Running via Blender:")
+        print(f"{script_path.stem}: {shlex.join(args)}")
+        print()
+
     proc = subprocess.run(args)
     raise SystemExit(proc.returncode)
 
@@ -87,18 +92,22 @@ def _find_blender_exe(script_path: Path) -> str:
 
     if bat_blender_env:
         print(
-            f"Cannot find blender executable, tried {bat_blender_env} from BAT_BLENDER:"
+            f"Cannot find blender executable, tried {bat_blender_env} from BAT_BLENDER:",
+            file=sys.stderr,
         )
     else:
-        print("Cannot find blender executable, set BAT_BLENDER:")
+        print("Cannot find blender executable, set BAT_BLENDER:", file=sys.stderr)
 
     match sys.platform:
         case "win32":
             path = r"C:\Program Files\Blender Foundation\Blender 5.1\blender"
-            print(f'  SET BAT_BLENDER="{path}"')
-            print(f"python {script_path.name} --help")
+            print(f'  SET BAT_BLENDER="{path}"', file=sys.stderr)
+            print(f"python {script_path.name} --help", file=sys.stderr)
         case _:
             path = "/path/to/blender"
-            print(f"env BAT_BLENDER={path} python3 {script_path.name} --help")
+            print(
+                f"env BAT_BLENDER={path} python3 {script_path.name} --help",
+                file=sys.stderr,
+            )
 
     raise SystemExit(47)

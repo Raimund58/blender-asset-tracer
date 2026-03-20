@@ -79,6 +79,10 @@ def cli_pack(raw_args: ParsedArgs) -> int:
 
     # Find the entry point of the pack.
     source_abs_path = file_usage.library_abspath(None)
+    if source_abs_path not in deps_repo.file_infoes:
+        log.error("Source file not found in pack, did you exclude '*.blend'?")
+        return 2
+
     pack_entry_point = deps_repo.file_infoes[source_abs_path].relpath_in_pack
     assert pack_entry_point is not None
     create_pack_description(cli_args.target_path, pack_entry_point)
@@ -299,7 +303,7 @@ def interpret_cli_args(args: ParsedArgs) -> CLIArgs:
         root_path = root_path.parent
 
     target_path: Path = args.target
-    exclude_globs: set[str] = set(args.exclude)
+    exclude_globs: set[str] = {glob.lower() for glob in args.exclude}
     relative_only: bool = args.relative_only
 
     log.info("Blend file to pack     : %s", blendfile)

@@ -8,14 +8,16 @@ import sys
 import time
 from typing import Any, NoReturn
 
-from . import list_deps, version
-
 # The 'argparse' module doesn't nicely expose its types.
 type CLIArguments = Any
 
 
 def cli_main() -> NoReturn:
-    from blender_asset_tracer import __version__
+    # Late-import our own modules, so that
+    # `blender_asset_tracer/cli/__init__.py` can be used without BAT itself
+    # being importable.
+    from .. import __version__
+    from . import list_deps, pack, version
 
     parser = argparse.ArgumentParser(
         description="BAT: Blender Asset Tracer v%s" % __version__
@@ -56,7 +58,7 @@ def cli_main() -> NoReturn:
         "Use --help after the subcommand to get more info."
     )
 
-    # pack.add_parser(subparsers)
+    pack.add_parser(subparsers)
     list_deps.add_parser(subparsers)
     version.add_parser(subparsers)
 

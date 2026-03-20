@@ -566,6 +566,7 @@ def library_abspath(lib: BlendFile | None) -> Path:
     lib=None returns the absolute path of the current blend file.
     """
     if lib is None:
+        assert bpy.data.filepath, "no blend file is loaded"
         filepath = bpy.data.filepath
     else:
         assert lib.packed_file is None, (
@@ -658,6 +659,9 @@ def determine_rewriting_needs(repo: FileDependencyRepository) -> None:
     # Step 2: find the file_info instances for those libraries, and mark them.
     for library in libraries_needing_rewriting:
         abs_path = library_abspath(library)
+        assert abs_path is not None
+        assert abs_path is not Path()
+
         file_info = repo.file_infoes[abs_path]
         file_info.needs_path_rewriting = True
 

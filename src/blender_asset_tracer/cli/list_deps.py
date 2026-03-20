@@ -117,5 +117,4 @@ def cli_list(args: CLIArguments) -> int:
             percentage = time_spent_on_shasums / duration * 100
             print("  (that is %d%% of the total time" % percentage)
 
-    bpy.ops.wm.read_homefile(use_empty=True)
     return 0

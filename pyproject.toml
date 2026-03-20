@@ -1,6 +1,6 @@
 [project]
 name = "blender-asset-tracer"
-version = "1.22"
+version = "1.23b0"
 homepage = 'https://projects.blender.org/blender/blender-asset-tracer/'
 
 description = "BAT parses Blend files and produces dependency information. After installation run `bat --help`"

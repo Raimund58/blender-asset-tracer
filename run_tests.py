@@ -11,7 +11,7 @@ THIS_SCRIPT_DIR = THIS_SCRIPT_PATH.parent
 
 sys.path.insert(0, str(THIS_SCRIPT_DIR))
 
-from venv_support import loop_via_blender
+from blender_asset_tracer.venv_support import loop_via_blender
 
 
 class CustomTestLoader(unittest.TestLoader):

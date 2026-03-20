@@ -27,7 +27,7 @@ THIS_SCRIPT_PATH = Path(__file__).resolve()
 
 sys.path.insert(0, str(THIS_SCRIPT_PATH.parent))
 
-from venv_support import loop_via_blender
+from blender_asset_tracer.venv_support import loop_via_blender
 
 
 def main() -> NoReturn:

@@ -19,6 +19,9 @@ release = [
     "twine>=6.2.0",
 ]
 
+[project.scripts]
+bat = "blender_asset_tracer:main_cli"
+
 [tool.setuptools]
 packages = ["blender_asset_tracer"]
 

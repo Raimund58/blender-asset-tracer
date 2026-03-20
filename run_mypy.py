@@ -23,10 +23,6 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-THIS_SCRIPT_PATH = Path(__file__).resolve()
-
-sys.path.insert(0, str(THIS_SCRIPT_PATH.parent))
-
 from blender_asset_tracer.venv_support import loop_via_blender
 
 
@@ -68,4 +64,5 @@ def main() -> NoReturn:
 
 
 if __name__ == "__main__":
-    loop_via_blender(main, THIS_SCRIPT_PATH)
+    this_script_path = Path(__file__).resolve()
+    loop_via_blender(main, this_script_path)

@@ -6,12 +6,9 @@ import unittest
 from pathlib import Path
 from typing import NoReturn
 
-THIS_SCRIPT_PATH = Path(__file__).resolve()
-THIS_SCRIPT_DIR = THIS_SCRIPT_PATH.parent
-
-sys.path.insert(0, str(THIS_SCRIPT_DIR))
-
 from blender_asset_tracer.venv_support import loop_via_blender
+
+THIS_SCRIPT_PATH = Path(__file__).resolve()
 
 
 class CustomTestLoader(unittest.TestLoader):

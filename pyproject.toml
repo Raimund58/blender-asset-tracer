@@ -22,6 +22,10 @@ release = [
 [project.scripts]
 bat = "blender_asset_tracer:main_cli"
 
+[build-system]
+requires = ["uv_build>=0.10.6,<0.11.0"]
+build-backend = "uv_build"
+
 [tool.setuptools]
 packages = ["blender_asset_tracer"]
 
@@ -38,7 +42,7 @@ url = "https://michaelgold.github.io/buildbpy/"
 [tool.mypy]
 # Prevent error message that bpy is untyped (most of its code is, indeed, untyped).
 disable_error_code = "import-untyped"
-files = ["."]
+files = ["src", "tests"]
 # Ignore files in directories with ___ in their name. This is just a way to hide
 # things from mypy.
 exclude = "___|^docs/|/2D_Animation"

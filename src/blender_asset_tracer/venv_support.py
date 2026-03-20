@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Blender Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import inspect
 import os
 import shutil
-import site
 import sys
 from pathlib import Path
 from typing import Callable, NoReturn
@@ -16,7 +16,7 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
     """
 
     if _is_inside_blender():
-        _reactivate_venv()
+        # _reactivate_venv()
         callback()
 
     import shlex
@@ -24,7 +24,9 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
 
     blender_exe = _find_blender_exe(script_path)
 
+    # Construct CLI arguments for Blender.
     args = [blender_exe]
+
     if not os.environ.get("BAT_BLENDER_VERBOSE", ""):
         args.append("-q")
 
@@ -34,11 +36,24 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
             "--factory-startup",
             "--python-exit-code",
             "47",
-            "--python-use-system-env",
-            "-P",
-            str(script_path),
         ]
     )
+
+    # If currently running inside a virtualenv, reactivate it in Blender.
+    if venv := os.environ.get("VIRTUAL_ENV"):
+        venv_path = Path(venv)
+        match sys.platform:
+            case "win32":
+                site_dir = venv_path / "Lib/site-packages"
+            case _:
+                site_dir = next(venv_path.glob("lib/python*/site-packages"))
+        assert site_dir.is_dir(), site_dir
+
+        add_site_code = "import site; site.addsitedir({!r})".format(str(site_dir))
+        args.extend(["--python-expr", add_site_code])
+
+    # Finally, add the script to run.
+    args.extend(["-P", str(script_path)])
 
     # Forward CLI arguments to the re-run of the script in Blender.
     if len(sys.argv) > 1:
@@ -46,23 +61,10 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
         args.extend(sys.argv[1:])
 
     print(f"{script_path.stem}: Running via Blender:")
-    print(f"{script_path.stem}: \033[97m{shlex.join(args)}\033[0m")
+    print(f"{script_path.stem}: {shlex.join(args)}")
+    print()
     proc = subprocess.run(args)
     raise SystemExit(proc.returncode)
-
-
-def _reactivate_venv() -> None:
-    if "VIRTUAL_ENV" not in os.environ:
-        return
-
-    venv_path = Path(os.environ["VIRTUAL_ENV"])
-    print(f"Reactivating virtualenv: {venv_path}")
-
-    # Add the virtual environments libraries.
-    lib_dirs_posix = list(venv_path.rglob("lib/*/site-packages"))
-    lib_dirs_windows = list(venv_path.rglob("Lib/site-packages"))
-    for lib_dir in lib_dirs_posix + lib_dirs_windows:
-        site.addsitedir(str(lib_dir))
 
 
 def _is_inside_blender() -> bool:

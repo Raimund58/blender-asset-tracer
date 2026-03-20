@@ -3,6 +3,11 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
+# Version 1.22 (2026-03-20)
+
+- Fix [#104425: Link Chain causes Error performing BAT pack: WinError 32](https://projects.blender.org/studio/flamenco/issues/104425)
+
+
 # Version 1.21 (2025-11-24)
 
 - Require Python version 3.11 or newer. Versions up to Python 3.14 are supported.

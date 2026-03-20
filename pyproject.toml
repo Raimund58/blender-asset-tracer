@@ -15,12 +15,18 @@ dev = [
     "mypy>=1.19.1,<2",
     "ruff>=0.15.0,<0.16",
 ]
+release = [
+    "twine>=6.2.0",
+]
 
 [tool.setuptools]
 packages = ["blender_asset_tracer"]
 
 [tool.uv]
-default-groups = "all"
+# Don't install the 'release' group by default. That pulls in Twine and its
+# dependencies, which are only interesting for people who need to publish
+# release packages.
+default-groups = ["dev"]
 
 [[tool.uv.index]]
 name = "michaelgold"

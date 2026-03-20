@@ -4,13 +4,19 @@ Tool to manage assets with Blender.
 
 Blender Asset Tracer, a.k.a. BAT, is a tool for finding dependencies of blend files, and for packing those dependencies into a self-contained directory.
 
+## Requirements
+
+BAT v2 requires Blender 5.1 or newer.
+
 ## Known Limitations
 
 - BAT v2 needs Blender 5.1 or newer to function.
-- Blender 5.1.0 does not report legacy particle system cache files correctly. This is fixed in [blender#155720](https://projects.blender.org/blender/blender/pulls/155720), which will be part of Blender 5.1.1.
-- Blender 5.1.0 does not report Alembic file sequences correctly, see [#155774: Alembic: sequences are not reported correctly by cache_file_foreach_path()](https://projects.blender.org/blender/blender/issues/155774). For now, BAT does not handle such files correctly either.
+- Blender 5.1.0 does not report legacy particle system cache files correctly. This is fixed in [blender!155720](https://projects.blender.org/blender/blender/pulls/155720), which will be part of Blender 5.1.1.
+- Blender 5.1.0 does not report Alembic file sequences correctly, see [blender#155774](https://projects.blender.org/blender/blender/issues/155774). For now, BAT does not handle such files correctly either.
+- Blender 5.1.0 does not report Geometry Nodes simulation cache files files, see [blender#155953](https://projects.blender.org/blender/blender/issues/155953). As a result, BAT does not know about these files and will not report them as a dependency or pack them.
 
-To test cases like the above limitations, run the following in Blender's Python console:
+
+To test cases like the above limitations, run the following in Blender's Python console. It should report the files in use by the current blend file:
 
 ```py
 >>> {k: v for (k, v) in D.file_path_map().items() if v}
@@ -44,16 +50,24 @@ $ uv run python run_tests.py  # Run unit tests.
 
 If any of the `uv run` commands fail because they cannot find Blender, provide the path:
 
+On Linux/macOS:
+
 ```bash
-$ uv run python run_tests.py ~/Downloads/blenders/blender-5.1-beta/blender
-$ uv run python run_tests.py C:\Downloads\blenders\blender-5.1-beta\blender.exe
+$ export BAT_BLENDER=~/Downloads/blenders/blender-5.1/blender
+$ uv run python run_tests.py
 ```
 
-History: BAT v1 used Poetry for dependency management. That has a big downside, namely that Poetry itself is made in Python. It also has its own dependencies, which can clash with the dependencies of the project it manages. This makes it cumbersome to work with. BAT v2 switched to [UV](https://docs.astral.sh/uv/). It is made in Rust, so is a standalone binary, without extra dependencies to manage, and is much faster than Poetry.
+On Windows:
 
-## Type checking
+```cmd
+$ SET BAT_BLENDER="C:\Program Files\Blender Foundation\Blender 5.1\blender"'
+$ uv run python run_tests.py
+```
 
-The code statically type-checked with [mypy](http://mypy-lang.org/).
+### Historical Note
+
+BAT v1 used Poetry for dependency management. That has a big downside, namely that Poetry itself is made in Python. It also has its own dependencies, which can clash with the dependencies of the project it manages. This makes it cumbersome to work with. BAT v2 switched to [UV](https://docs.astral.sh/uv/). It is made in Rust, so is a standalone binary, without extra dependencies to manage, and is much faster than Poetry.
+
 
 ## Publishing a New Release
 
@@ -81,11 +95,16 @@ index-servers =
   password = pypi-abc-123-blablabla
 ```
 
-```
-. ./.venv/bin/activate
-pip install twine
+### Build the release package:
 
-poetry build
-poetry run twine check dist/blender_asset_tracer-2.0.0-beta0.tar.gz dist/blender_asset_tracer-2.0.0-beta0-*.whl
-poetry run twine upload -r bat dist/blender_asset_tracer-2.0.0-beta0.tar.gz dist/blender_asset_tracer-2.0.0-beta0-*.whl
+```bash
+$ uv build
+```
+
+### Check & upload the release package.
+
+```
+$ uv sync --group release
+$ uv run twine check dist/blender_asset_tracer-2.0.0-beta0.tar.gz dist/blender_asset_tracer-2.0.0-beta0-*.whl
+$ uv run twine upload -r bat dist/blender_asset_tracer-2.0.0-beta0.tar.gz dist/blender_asset_tracer-2.0.0-beta0-*.whl
 ```

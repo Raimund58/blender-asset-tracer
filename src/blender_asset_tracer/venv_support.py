@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Blender Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import inspect
 import os
-import shutil
 import sys
 from pathlib import Path
 from typing import Callable, NoReturn
@@ -80,6 +78,8 @@ def _is_inside_blender() -> bool:
 
 def _find_blender_exe(script_path: Path) -> str:
     """Find the Blender executable, either from $PATH or $BAT_BLENDER."""
+    import shutil
+
     bat_blender_env = os.environ.get("BAT_BLENDER") or ""
     blender_exe = shutil.which(bat_blender_env or "blender")
     if blender_exe is not None:
@@ -92,12 +92,13 @@ def _find_blender_exe(script_path: Path) -> str:
     else:
         print("Cannot find blender executable, set BAT_BLENDER:")
 
-    if sys.platform == "win32":
-        print(
-            r'  SET BAT_BLENDER="C:\Program Files\Blender Foundation\Blender 5.1\blender"'
-        )
-        print(f"python {script_path.name} --help")
-    else:
-        print(f"env BAT_BLENDER=/path/to/blender python3 {script_path.name} --help")
+    match sys.platform:
+        case "win32":
+            path = r"C:\Program Files\Blender Foundation\Blender 5.1\blender"
+            print(f'  SET BAT_BLENDER="{path}"')
+            print(f"python {script_path.name} --help")
+        case _:
+            path = "/path/to/blender"
+            print(f"env BAT_BLENDER={path} python3 {script_path.name} --help")
 
     raise SystemExit(47)

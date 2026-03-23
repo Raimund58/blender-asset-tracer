@@ -6,8 +6,8 @@ if [ -z "$1" ]; then
 fi
 
 poetry version $1
-sed "s/version = '[^']*'/version = '$1'/" -i  docs/conf.py
-sed "s/release = '[^']*'/release = '$1'/" -i docs/conf.py
+sed 's/version = "[^"]*"/version = "$1"/' -i  docs/conf.py
+sed 's/release = "[^"]*"/release = "$1"/' -i docs/conf.py
 sed "s/__version__\s*=\s*\"[^']*\"/__version__ = \"$1\"/" -i src/blender_asset_tracer/__init__.py
 sed --posix "s/\(dist\/blender[_-]asset[_-]tracer-\)\([0-9.betalphdv-]*[0-9]\)/\1$1/g" -i README.md
 

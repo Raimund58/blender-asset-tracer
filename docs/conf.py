@@ -20,7 +20,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "Blender Asset Tracer"
-copyright = "2018, Sybren A. Stüvel"
+copyright = "2018, Blender Foundation"
 author = "Sybren A. Stüvel"
 
 # The short X.Y version

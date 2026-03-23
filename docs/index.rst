@@ -13,13 +13,12 @@ Welcome to Blender Asset Tracer's documentation!
 
     CC-BY by Megan Mitchell
 
-Blender Asset Tracer, a.k.a. BAT🦇, is the replacement of BAM_ and
-blender-file_. BAT🦇 can be used to list all dependencies of a blend file, such
+Blender Asset Tracer, a.k.a. BAT🦇, can be used to list all dependencies of a blend file, such
 as linked blend files, textures, Alembic files, and caches. Furthermore, it can
 be used to create a BAT Pack (see :ref:`packing`), which contains the blend file
 and its dependencies.
 
-
+BAT started its life as the replacement of BAM_ and blender-file_.
 
 .. _BAM: https://developer.blender.org/diffusion/BAM/
 .. _blender-file: https://developer.blender.org/source/blender-file/

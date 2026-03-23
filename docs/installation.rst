@@ -3,31 +3,50 @@ Installation
 
 BAT🦇 can be installed with `pip`::
 
-    pip3 install blender-asset-tracer
+    pip3 install --user blender-asset-tracer
 
 
 Requirements and Dependencies
 -----------------------------
 
-In order to run BAT you need Python 3.5 or newer; BAT always targets the Python version
-used in the `latest Blender release`_.
+In order to run BAT v2.x you need Blender_ 5.1 or newer. BAT needs to know where
+to find Blender, and for this it uses the `BAT_BLENDER` environment variable.
 
-.. _`latest Blender release`: https://www.blender.org/download
+On Linux/macOS::
 
-Apart from Python, BAT has very little external dependencies. When only working
-with the local filesystem (which includes network shares; anything that your
-computer can simply copy files to) it has no extra dependencies. Uploading to
-S3-compatible storage requires the `boto3` library.
+  $ export BAT_BLENDER=~/Downloads/blenders/blender-5.1/blender
+  $ bat --help
+
+On Windows::
+
+  > SET BAT_BLENDER="C:\Program Files\Blender Foundation\Blender 5.1\blender"'
+  > bat --help
 
 
-Development dependencies
-------------------------
+Apart from Blender, BAT has very little external dependencies. It uses the
+cattrs_ library, which is bundled with Blender already.
 
-In order to start developing on BAT you need a bit more. Dependencies are managed by Poetry_::
+.. _`Blender`: https://www.blender.org/download
+.. _`cattrs`: https://catt.rs/
 
-    git clone https://gitlab.com/dr.sybren/blender-asset-tracer.git
-    cd blender-asset-tracer
-    pip3 install poetry
-    poetry install
 
-.. _Poetry: https://poetry.eustace.io/
+Development Setup
+-----------------
+
+First `install UV`_, then run::
+
+  git clone https://projects.blender.org/blender/blender-asset-tracer.git
+  cd blender-asset-tracer
+  uv sync
+
+.. _`install UV`: https://docs.astral.sh/uv/getting-started/installation/
+
+For more info, see `README.md <https://projects.blender.org/blender/blender-asset-tracer/src/branch/main/README.md>`_
+
+Building this Documentation
+---------------------------
+
+Run this for a live-reloading version of the documentation::
+
+    cd docs
+    uv run sphinx-autobuild . ./_build/html

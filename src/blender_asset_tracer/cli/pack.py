@@ -271,7 +271,7 @@ def add_parser(subparsers: ArgSubParser) -> None:
         default=False,
         action="store_true",
         help="Only pack assets that are referred to with a relative path (e.g. "
-        "starting with `//`.",
+        "starting with `//`).",
     )
 
 

@@ -701,7 +701,15 @@ class FileBasedIntegrationTests(unittest.TestCase):
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
     def test_geonodes_sim_cache(self) -> None:
-        self.skipTest("see Blender issue #155953")
+        """
+        Geonodes sim caches are special, because Blender only reports the
+        directory, and not each file it uses in that directory.
+        """
+
+        if bpy.app.version <= (5, 1, 0) and bpy.app.version_cycle == "release":
+            self.skipTest(
+                "Blender 5.1.0 has known bug #155953 that makes this test fail"
+            )
 
         pack_root = blendfiles / "geometry-nodes-sim"
         infile = pack_root / "geonodes-sim-cache.blend"
@@ -717,6 +725,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             )
         }
 
+        # The one directory that Blender reports should be 'exploded' into all files.
         for file in itertools.chain(
             pack_root.rglob("*.json"),
             pack_root.rglob("*.blob"),

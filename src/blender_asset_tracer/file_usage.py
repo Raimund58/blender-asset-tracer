@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import enum
 import fnmatch
 import functools
 import os.path
@@ -53,6 +54,18 @@ class Options:
     ignore_globs: set[str] = dataclasses.field(default_factory=set)
 
 
+class PathType(enum.Enum):
+    ABSOLUTE = 1
+    RELATIVE = 2
+
+    @classmethod
+    def for_bpath(cls, blender_path: str) -> PathType:
+        """Return the path type for the given Blender path."""
+        if blender_path[:2] == "//":
+            return cls.RELATIVE
+        return cls.ABSOLUTE
+
+
 @dataclasses.dataclass
 class FileInfo:
     # The absolute path of the file described by this FileInfo.
@@ -83,7 +96,9 @@ class FileInfo:
 
     # Indicator that this file needs path rewriting.
     #
-    # This means that this file referenced a file that has `needs_relocation=True`.
+    # This means that this file referenced a file that has
+    # `needs_relocation=True`, or it references a dependency by absolute path
+    # (which has to be turned into a relative path). Or both.
     needs_path_rewriting: bool = False
 
     # The path, relative to the project root, where this file will sit on the
@@ -92,7 +107,11 @@ class FileInfo:
     relpath_in_pack: PurePath | None = None
 
     # Library files that contain data-blocks that reference this file.
-    references: set[BlendFile] = dataclasses.field(default_factory=set)
+    #
+    # Absolute paths are 'dominant': if there are multiple references, and one
+    # of them was with an absolute path, the absolute path 'wins' and determines
+    # the value in the dictionary.
+    references: dict[BlendFile, PathType] = dataclasses.field(default_factory=dict)
 
     # Rewrite rules that should be applied to this file.
     # Should only be set when `needs_path_rewriting=True`.
@@ -109,6 +128,15 @@ class FileInfo:
         file. Otherwise this is just the source file.
         """
         return self.rewritten_file_path or self.source_path
+
+    def add_reference(self, blendfile: BlendFile, path_type: PathType) -> None:
+        match self.references.get(blendfile, None):
+            case PathType.ABSOLUTE:
+                return
+            case PathType.RELATIVE:
+                self.references[blendfile] = path_type
+            case None:
+                self.references[blendfile] = path_type
 
 
 @dataclasses.dataclass
@@ -150,6 +178,7 @@ def _deps_repo_add_path(
     reported_path: Path,
     *,
     used_by_library: BlendFile,
+    path_type: PathType,
 ) -> None:
     """Add a file to the repository.
 
@@ -172,6 +201,7 @@ def _deps_repo_add_path(
                 abspath=file_path,
                 reported_path=None,
                 used_by_library=used_by_library,
+                path_type=path_type,
             )
         return
 
@@ -188,6 +218,7 @@ def _deps_repo_add_path(
             abspath=reported_path,
             reported_path=None,
             used_by_library=used_by_library,
+            path_type=path_type,
         )
         return
 
@@ -205,6 +236,7 @@ def _deps_repo_add_path(
             abspath=abs_path,
             reported_path=reported_path,
             used_by_library=used_by_library,
+            path_type=path_type,
         )
 
 
@@ -214,6 +246,7 @@ def _deps_repo_add_file_single(
     abspath: Path,
     reported_path: Path | None,
     used_by_library: BlendFile,
+    path_type: PathType,
 ) -> FileInfo:
     if abspath.exists():
         assert abspath.is_file(), f"{abspath} is not a file"
@@ -224,7 +257,7 @@ def _deps_repo_add_file_single(
         pass
     else:
         # Remember that this library blend file references this asset file.
-        file_info.references.add(used_by_library)
+        file_info.add_reference(used_by_library, path_type)
         return file_info
 
     # Construct all the file info. Most of this code just depends on the
@@ -237,7 +270,7 @@ def _deps_repo_add_file_single(
     deps_repo.file_infoes[abspath] = file_info
 
     # Remember that this library blend file references this asset file.
-    file_info.references.add(used_by_library)
+    file_info.add_reference(used_by_library, path_type)
 
     try:
         relpath_in_pack = PurePath(abspath.relative_to(deps_repo.root_path))
@@ -290,7 +323,9 @@ def determine_dependencies(
     # Add the current blend file itself.
     source_file = library_abspath(None)
     deps_repo.packed_source_file = source_file
-    _deps_repo_add_path(deps_repo, source_file, used_by_library=None)
+    _deps_repo_add_path(
+        deps_repo, source_file, used_by_library=None, path_type=PathType.RELATIVE
+    )
 
     # Step 1: find all inter-blendfile relations.
     for used_id, ids_using_some_id in bpy.data.user_map().items():
@@ -302,17 +337,18 @@ def determine_dependencies(
             # Not actually a file on disk.
             continue
 
+        path_type = PathType.for_bpath(used_library.filepath)
         used_lib_path = library_abspath(used_library)
 
         for id_user in ids_using_some_id:
             if id_user.library == used_library:
                 continue
 
-            # id_user_lib_path = library_abspath(used_library)
             _deps_repo_add_path(
                 deps_repo,
                 used_lib_path,
                 used_by_library=id_user.library,
+                path_type=path_type,
             )
 
     # Step 2: find all paths to non-blendfiles.
@@ -331,8 +367,11 @@ def determine_dependencies(
             # Skip absolute paths.
             return None
 
+        path_type = PathType.for_bpath(path)
         abspath = path_absolute(path, library=owner_id.library)
-        _deps_repo_add_path(deps_repo, abspath, used_by_library=owner_id.library)
+        _deps_repo_add_path(
+            deps_repo, abspath, used_by_library=owner_id.library, path_type=path_type
+        )
         return None
 
     bpy.data.file_path_foreach(_visit_path_usage)

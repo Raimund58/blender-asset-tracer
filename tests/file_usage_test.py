@@ -110,6 +110,40 @@ class FileUsageTest(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(expected, deps_repo.file_infoes)
 
+    def test_absolute_references_inside_project(self) -> None:
+        # Test what happens when file references are absolute, but still point
+        # within the project root. Such paths will have to be rewritten.
+        infile = blendfiles / "linked_cube.blend"
+        load_blendfile(infile)
+
+        # Tweak the library link, so that the library blend file is referred to
+        # by absolute path.
+        bpy.data.libraries["Lib"].filepath = bpy.path.abspath(
+            bpy.data.libraries["Lib"].filepath
+        )
+
+        deps_repo = file_usage.FileDependencyRepository(blendfiles)
+        file_usage.determine_dependencies(deps_repo, file_usage.Options())
+
+        expected = {
+            # The currently-open blend file itself:
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                relpath_in_pack=PurePath("linked_cube.blend"),
+                references={None},
+                needs_path_rewriting=True,  # Because the library reference needs updating.
+            ),
+            # Library Blend file:
+            blendfiles / "basic_file.blend": file_usage.FileInfo(
+                source_path=blendfiles / "basic_file.blend",
+                relpath_in_pack=PurePath("basic_file.blend"),
+                references={None},
+            ),
+        }
+
+        self.maxDiff = None
+        self.assertEqual(expected, deps_repo.file_infoes)
+
 
 class PathsOutsideProjectsTest(unittest.TestCase):
     """Test the strategies for handling paths outside the project root."""

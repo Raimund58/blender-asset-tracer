@@ -4,7 +4,7 @@
 import unittest
 from pathlib import Path
 
-from . import path_clustering
+from blender_asset_tracer import path_clustering
 
 
 class PathClusteringTest(unittest.TestCase):

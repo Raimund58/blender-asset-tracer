@@ -5,7 +5,7 @@ import dataclasses
 import unittest
 from pathlib import Path, PurePath
 
-from . import path_rewriting_models as models
+from blender_asset_tracer import path_rewriting_models as models
 
 
 class RewriteRequestHashableTest(unittest.TestCase):

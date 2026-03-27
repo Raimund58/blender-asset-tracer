@@ -5,7 +5,7 @@ import hashlib
 import unittest
 from pathlib import Path, PurePath, PurePosixPath
 
-from . import file_usage, hashing, path_rewriting
+from blender_asset_tracer import file_usage, hashing, path_rewriting
 
 _my_dir = Path(__file__).resolve().parent
 _testfile_root = _my_dir.parent / "tests/blendfiles"

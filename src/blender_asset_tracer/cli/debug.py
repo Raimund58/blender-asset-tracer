@@ -86,11 +86,12 @@ def print_all_files(deps_repo: _FileDependencyRepository, root_path: Path) -> No
 
         print(f"\033[{color}m{relpath}\033[0m:")
         print(f"    in_pack = \033[{in_pack_color}m{in_pack}\033[0m")
-        for ref in info.references:
+        for ref, path_type in info.references.items():
             ref_path = file_usage.library_abspath(ref).relative_to(
                 root_path, walk_up=True
             )
-            print(f"    ref by  = {ref_path if ref else '(local)'}")
+            print(f"    ref by   = {ref_path if ref else '(local)'}")
+            print(f"    ref type = {path_type.name.lower()}")
 
 
 def print_relocation_rewriting_needs(

@@ -71,8 +71,8 @@ class PathType(enum.Enum):
     def for_bpath(cls, path_from_blender: str) -> PathType:
         """Return the path type for the given Blender path."""
         if _is_blender_path_absolute(path_from_blender):
-            return cls.RELATIVE
-        return cls.ABSOLUTE
+            return cls.ABSOLUTE
+        return cls.RELATIVE
 
 
 @dataclasses.dataclass
@@ -265,7 +265,7 @@ def _deps_repo_add_file_single(
     else:
         # Remember that this library blend file references this asset file.
         if used_by_library != "-none-":
-            file_info.references.add(used_by_library, path_type)
+            file_info.add_reference(used_by_library, path_type)
         return file_info
 
     # Construct all the file info. Most of this code just depends on the
@@ -279,7 +279,7 @@ def _deps_repo_add_file_single(
 
     # Remember that this library blend file references this asset file.
     if used_by_library != "-none-":
-        file_info.references.add(used_by_library, path_type)
+        file_info.add_reference(used_by_library, path_type)
 
     try:
         relpath_in_pack = PurePath(abspath.relative_to(deps_repo.root_path))
@@ -362,11 +362,22 @@ def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> No
             if id_user.library == used_library:
                 continue
 
+            if id_user.library is None:
+                # This is only correct for directly-linked blend files, and so
+                # only used when the data-block is used by a local data-block.
+                path_type = PathType.for_bpath(used_library.filepath)
+            else:
+                # To determine this for indirectly linked files (so libraries
+                # linking other libraries), they need to be opened by themselves
+                # and investigated further. For now, pray that the project is
+                # set up sanely and uses relative paths for library linking.
+                path_type = PathType.RELATIVE
+
             _deps_repo_add_path(
                 deps_repo,
                 used_lib_path,
                 used_by_library=id_user.library,
-                path_type=PathType.UNKNOWN,
+                path_type=path_type,
             )
 
 

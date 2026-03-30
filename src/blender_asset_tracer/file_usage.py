@@ -11,7 +11,7 @@ import functools
 import os.path
 from collections.abc import Generator, Iterable
 from pathlib import Path, PurePath
-from typing import Any
+from typing import Any, Literal
 
 import bpy  # pyright: ignore[reportMissingImports]
 
@@ -184,7 +184,7 @@ def _deps_repo_add_path(
     deps_repo: FileDependencyRepository,
     reported_path: Path,
     *,
-    used_by_library: BlendFile,
+    used_by_library: BlendFile | Literal["-none-"],
     path_type: PathType,
 ) -> None:
     """Add a file to the repository.
@@ -252,7 +252,7 @@ def _deps_repo_add_file_single(
     *,
     abspath: Path,
     reported_path: Path | None,
-    used_by_library: BlendFile,
+    used_by_library: BlendFile | Literal["-none-"],
     path_type: PathType,
 ) -> FileInfo:
     if abspath.exists():
@@ -264,7 +264,8 @@ def _deps_repo_add_file_single(
         pass
     else:
         # Remember that this library blend file references this asset file.
-        file_info.add_reference(used_by_library, path_type)
+        if used_by_library != "-none-":
+            file_info.references.add(used_by_library, path_type)
         return file_info
 
     # Construct all the file info. Most of this code just depends on the
@@ -277,7 +278,8 @@ def _deps_repo_add_file_single(
     deps_repo.file_infoes[abspath] = file_info
 
     # Remember that this library blend file references this asset file.
-    file_info.add_reference(used_by_library, path_type)
+    if used_by_library != "-none-":
+        file_info.references.add(used_by_library, path_type)
 
     try:
         relpath_in_pack = PurePath(abspath.relative_to(deps_repo.root_path))
@@ -330,7 +332,10 @@ def _add_source_file(deps_repo: FileDependencyRepository) -> None:
     source_file = library_abspath(None)
     deps_repo.packed_source_file = source_file
     _deps_repo_add_path(
-        deps_repo, source_file, used_by_library=None, path_type=PathType.RELATIVE
+        deps_repo,
+        source_file,
+        used_by_library="-none-",
+        path_type=PathType.RELATIVE,  # Value doesn't matter here.
     )
 
 

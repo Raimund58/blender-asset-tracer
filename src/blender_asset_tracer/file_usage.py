@@ -22,13 +22,10 @@ __all__ = (
     "FileInfo",
     "FileDependencyRepository",
     "dependencies_of_current_blendfile",
-    "determine_pack_paths_clustered",
-    "determine_pack_paths_simple",
     "path_absolute",
     "library_abspath",
     "library_is_archive",
     "cache_clear",
-    "determine_rewriting_needs",
 )
 
 
@@ -327,35 +324,42 @@ def dependencies_of_current_blendfile(
 
     with cache_autoclear():
         deps_repo = FileDependencyRepository(root_path=root_path)
-        determine_dependencies(deps_repo, options)
-        determine_pack_paths_clustered(deps_repo, options)
-        determine_rewriting_needs(deps_repo)
+        _determine_dependencies(deps_repo, options)
+        _determine_pack_paths_clustered(deps_repo, options)
+        _determine_rewriting_needs(deps_repo)
 
     return deps_repo
 
 
-def determine_dependencies(
+def _determine_dependencies(
     deps_repo: FileDependencyRepository,
     options: Options = Options(),
 ) -> None:
-    """Return info about all files used by the currently-open blend file.
+    """Determine the dependencies of the currently-open blend file."""
+    _add_source_file(deps_repo)
+    _determine_blendfile_dependencies(deps_repo)
+    _determine_nonblend_dependencies(deps_repo, options)
+    _filter_out_ignored_files(deps_repo, options)
 
-    Returns a mapping from absolute file path, to a FileInfo about that file.
-    This includes the currently-open blend file itself, so that the returned
-    data is a complete picture of all relevant files.
 
-    When a file sits outside the given root path, the FileInfo will be marked
-    as "needs relocation", and the path in the pack will be None.
-    """
+def _add_source_file(deps_repo: FileDependencyRepository) -> None:
+    """Add the source file to the repository."""
 
-    # Add the current blend file itself.
     source_file = library_abspath(None)
     deps_repo.packed_source_file = source_file
     _deps_repo_add_path(
         deps_repo, source_file, used_by_library=None, path_type=PathType.RELATIVE
     )
 
-    # Step 1: find all inter-blendfile relations.
+
+def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> None:
+    """Determine dependencies between blend files.
+
+    This is done based on the loaded data-blocks. When a data-block from file
+    A uses a data-block from file B, this is registered as a dependency between
+    the files.
+    """
+
     for used_id, ids_using_some_id in bpy.data.user_map().items():
         if not ids_using_some_id:
             continue
@@ -378,7 +382,13 @@ def determine_dependencies(
                 path_type=PathType.UNKNOWN,
             )
 
-    # Step 2: find all paths to non-blendfiles.
+
+def _determine_nonblend_dependencies(
+    deps_repo: FileDependencyRepository,
+    options: Options = Options(),
+) -> None:
+    """Find all paths to non-blendfiles."""
+
     def _visit_path_usage(owner_id: bpy.types.ID, path: str, _: Any) -> str | None:
         """Track each file path used.
 
@@ -387,7 +397,8 @@ def determine_dependencies(
         """
         if owner_id.id_type == "LIBRARY":
             # Skip library data-blocks. They only indicate the use of the
-            # library, but give us no information about recursive dependencies.
+            # library, but give us no information about which blend file
+            # actually uses this library.
             return None
 
         if options.use_relative_only and _is_blender_path_absolute(path):
@@ -403,19 +414,31 @@ def determine_dependencies(
 
     bpy.data.file_path_foreach(_visit_path_usage)
 
-    # Step 3: remove all entries that should be ignored. This is easier to do as
-    # a post-process than to weave all the 'ignore' options into the code above.
-    if options.ignore_globs:
-        # Ensure the globs are all lower-case, as the comparison should be done
-        # case-insensitively.
-        globs = [glob.lower() for glob in options.ignore_globs]
-        to_remove = {
-            path
-            for path in deps_repo.file_infoes.keys()
-            if _filename_matches_any_glob(path.name.lower(), globs)
-        }
-        for path in to_remove:
-            del deps_repo.file_infoes[path]
+
+def _filter_out_ignored_files(
+    deps_repo: FileDependencyRepository,
+    options: Options = Options(),
+) -> None:
+    """Remove all entries that should be ignored.
+
+    This is easier to do as a post-process than to weave all the 'ignore'
+    options into the code above.
+    """
+
+    if not options.ignore_globs:
+        return
+
+    # Ensure the globs are all lower-case, as the comparison should be done
+    # case-insensitively.
+    globs = [glob.lower() for glob in options.ignore_globs]
+    to_remove = {
+        path
+        for path in deps_repo.file_infoes.keys()
+        if _filename_matches_any_glob(path.name.lower(), globs)
+    }
+
+    for path in to_remove:
+        del deps_repo.file_infoes[path]
 
 
 def _filename_matches_any_glob(file_name: str, globs: Iterable[str]) -> bool:
@@ -428,7 +451,7 @@ def _filename_matches_any_glob(file_name: str, globs: Iterable[str]) -> bool:
     return any(fnmatch.fnmatchcase(file_name, glob) for glob in globs)
 
 
-def determine_pack_paths_clustered(
+def _determine_pack_paths_clustered(
     repo: FileDependencyRepository,
     options: Options = Options(),
 ) -> None:
@@ -503,7 +526,7 @@ def _shorten_paths(paths: list[Path]) -> dict[Path, Path]:
     return {orig: short for short, orig in shortened_prefixes.items()}
 
 
-def determine_pack_paths_simple(
+def _determine_pack_paths_simple(
     repo: FileDependencyRepository,
     options: Options = Options(),
 ) -> None:
@@ -694,7 +717,7 @@ def cache_autoclear() -> Generator[None, None, None]:
         cache_clear()
 
 
-def determine_rewriting_needs(repo: FileDependencyRepository) -> None:
+def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
     """Determine while file needs path rewriting.
 
     Sets file_info.needs_path_rewriting=True and file_info.rewrite_rules on all

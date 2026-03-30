@@ -95,19 +95,19 @@ def rewrite_file(
     :param blendfile: absolute path to the file to operate on.
     :param blendfile_path_in_pack: the blend file's location in the pack,
         relative to the pack's root.
-    :param rewrite_rules: mapping from absolute file path, to that file's
-        location in the pack.
+    :param rewrite_rules: mapping from absolute directory path, to that
+        directory's location in the pack. Can be empty to only rewrite
+        absolute paths to relative paths.
     :param save_to: absolute path to where to save the rewritten file.
     """
     assert blendfile.is_absolute()
     assert not blendfile_path_in_pack.is_absolute()
-    assert rewrite_rules, "cannot rewrite paths without rewrite rules"
     assert blendfile != save_to
 
     blend_dir_in_pack = blendfile_path_in_pack.parent
 
     def _rewrite_path_usage(owner_id: bpy.types.ID, path: str, _: Any) -> str | None:
-        """Rewrite this file path, if it's in the rewrite rules."""
+        """Rewrite this file path, if it's absolute or in the rewrite rules."""
 
         # Make the file path an absolute pathlib.Path. This ensures
         # compatibility with the rewrite rules (which always contains absolute
@@ -121,22 +121,28 @@ def rewrite_file(
         try:
             rewritten_dir_path_in_pack = rewrite_rules[abs_path_dir]
         except KeyError:
-            _logger.info("  - keeping {!s}".format(abs_path))
-            return None
+            # If the path is relative, it can be used as-is.
+            if not file_usage.is_blender_path_absolute(path):
+                _logger.info("  - keeping: {!s}".format(abs_path))
+                return None
 
-        # Construct the rewritten file path.
-        rewritten_path_in_pack = rewritten_dir_path_in_pack / abs_path.name
+            # This still needs rewriting if it's an absolute path.
+            _logger.info("  - making relative: {!s}".format(abs_path))
+            rewritten_path_in_pack = PurePath(abs_path)
+        else:
+            # Construct the file path from the rewritten directory path.
+            rewritten_path_in_pack = rewritten_dir_path_in_pack / abs_path.name
 
-        # The path is relative to the project root in the pack. It has to be
-        # rewritten so that it's relative to the loaded blend file.
+        # The path is either absolute or relative to the project root in the
+        # pack. It has to be rewritten so that it's relative to the blend file.
         blendfile_relative_path = rewritten_path_in_pack.relative_to(
             blend_dir_in_pack, walk_up=True
         )
         rewritten_path_str = "//" + blendfile_relative_path.as_posix()
 
         # It's possible that rewriting doesn't actually change the path. This
-        # can happen when multiple files refer to relocated files, but
-        # eventually end up in the same relative configuration.
+        # can happen when a relocated file references another relocated file,
+        # and eventually end up in the same relative configuration.
         #
         # TODO: try to detect these cases before doing the rewriting, as that
         # may make it possible to just do a relocate (instead of no-op

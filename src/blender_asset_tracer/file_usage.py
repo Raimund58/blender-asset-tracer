@@ -151,6 +151,8 @@ class FileInfo:
         existing_type = self.references.get(blendfile, None)
         match existing_type:
             case PathType.ABSOLUTE:
+                # ABSOLUTE is the dominant type, because use of an absolute path
+                # means the user has to be rewritten to use a relative path.
                 return
             case PathType.UNKNOWN:
                 match path_type:
@@ -718,7 +720,7 @@ def determine_rewriting_needs(repo: FileDependencyRepository) -> None:
             file_info.needs_relocation = False
             continue
 
-        libraries_needing_rewriting |= file_info.references
+        libraries_needing_rewriting |= set(file_info.references)
 
     # Step 2: find the file_info instances for those libraries, and mark them.
     for library in libraries_needing_rewriting:

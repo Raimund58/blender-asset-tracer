@@ -17,7 +17,7 @@ def cli_main() -> NoReturn:
     # `blender_asset_tracer/cli/__init__.py` can be used without BAT itself
     # being importable.
     from .. import __version__
-    from . import list_deps, pack, version
+    from . import debug, list_deps, pack, version
 
     parser = argparse.ArgumentParser(
         description="BAT: Blender Asset Tracer v%s" % __version__
@@ -58,8 +58,9 @@ def cli_main() -> NoReturn:
         "Use --help after the subcommand to get more info."
     )
 
-    pack.add_parser(subparsers)
+    debug.add_parser(subparsers)
     list_deps.add_parser(subparsers)
+    pack.add_parser(subparsers)
     version.add_parser(subparsers)
 
     # Make sure we only pass arguments after '--' to the parser. The rest are

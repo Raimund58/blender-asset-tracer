@@ -22,7 +22,7 @@ class FileUsageTest(unittest.TestCase):
         load_blendfile(infile)
 
         deps_repo = file_usage.FileDependencyRepository(root)
-        file_usage.determine_dependencies(deps_repo, file_usage.Options())
+        file_usage._determine_dependencies(deps_repo, file_usage.Options())
 
         libs = bpy.data.libraries
         expected = {
@@ -87,7 +87,7 @@ class FileUsageTest(unittest.TestCase):
         options = file_usage.Options(use_relative_only=True)
 
         deps_repo = file_usage.FileDependencyRepository(blendfiles)
-        file_usage.determine_dependencies(deps_repo, options)
+        file_usage._determine_dependencies(deps_repo, options)
 
         expected = {
             # The currently-open blend file itself:
@@ -171,7 +171,7 @@ class PathsOutsideProjectsTest(unittest.TestCase):
                 repo, abspath=path, reported_path=None, used_by_library=None
             )
 
-        file_usage.determine_pack_paths_clustered(repo)
+        file_usage._determine_pack_paths_clustered(repo)
 
         outside = Path("_outside_project")
 

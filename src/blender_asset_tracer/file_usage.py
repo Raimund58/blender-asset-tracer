@@ -23,6 +23,7 @@ __all__ = (
     "FileDependencyRepository",
     "dependencies_of_current_blendfile",
     "path_absolute",
+    "is_blender_path_absolute",
     "library_abspath",
     "library_is_archive",
     "cache_clear",
@@ -70,7 +71,7 @@ class PathType(enum.Enum):
     @classmethod
     def for_bpath(cls, path_from_blender: str) -> PathType:
         """Return the path type for the given Blender path."""
-        if _is_blender_path_absolute(path_from_blender):
+        if is_blender_path_absolute(path_from_blender):
             return cls.ABSOLUTE
         return cls.RELATIVE
 
@@ -399,7 +400,7 @@ def _determine_nonblend_dependencies(
             # actually uses this library.
             return None
 
-        if options.use_relative_only and _is_blender_path_absolute(path):
+        if options.use_relative_only and is_blender_path_absolute(path):
             # Skip absolute paths.
             return None
 
@@ -608,7 +609,7 @@ def _path_relative_safe(some_path: PurePath) -> PurePath:
     return some_path.with_segments(*parts)
 
 
-def _is_blender_path_absolute(path_from_blender: str) -> bool:
+def is_blender_path_absolute(path_from_blender: str) -> bool:
     """Return True when the path is an absolute path.
 
     For this function, "absolute" is considered a path that remains valid when

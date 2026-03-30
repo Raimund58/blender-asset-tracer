@@ -49,8 +49,8 @@ def add_parser(subparsers: ArgSubParser) -> None:
     parser.set_defaults(func=cli_list)
     parser.add_argument("blendfile", type=Path)
     parser.add_argument(
-        "-r",
-        "--root",
+        "-p",
+        "--project",
         type=Path,
         default=None,
         help="Root directory of the project. If not given, the blend file is assumed to be at the root.",
@@ -84,7 +84,7 @@ def cli_list(args: CLIArguments) -> int:
     # Convert the CLI arguments to typed variables.
     blendfile: Path = args.blendfile
     root_path: Path = (
-        args.root.resolve() if args.root else args.blendfile.resolve().parent
+        args.project.resolve() if args.project else args.blendfile.resolve().parent
     )
     include_sha256: bool = args.sha256
     show_timing: bool = args.timing

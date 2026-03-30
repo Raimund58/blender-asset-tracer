@@ -31,7 +31,6 @@ class FileUsageTest(unittest.TestCase):
                 source_path=infile,
                 needs_relocation=False,
                 relpath_in_pack=PurePath("scene.blend"),
-                references={None},
             ),
             # Library Blend files:
             root / "char/cube.blend": file_usage.FileInfo(
@@ -95,7 +94,6 @@ class FileUsageTest(unittest.TestCase):
                 source_path=infile,
                 needs_relocation=False,
                 relpath_in_pack=PurePath("absolute_path.blend"),
-                references={None},
             ),
             # The only asset referred to by relative path:
             blendfiles

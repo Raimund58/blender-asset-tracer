@@ -117,7 +117,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 blendfiles / "subdir/image_sequence_dir_up.blend": file_usage.FileInfo(
                     source_path=blendfiles / "subdir/image_sequence_dir_up.blend",
                     relpath_in_pack=PurePath("subdir/image_sequence_dir_up.blend"),
-                    references={None},
                 ),
                 blendfiles / "imgseq/000210.png": file_usage.FileInfo(
                     source_path=blendfiles / "imgseq/000210.png",
@@ -165,7 +164,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 pack_root / "v01_UDIM_BAT_debugging.blend": file_usage.FileInfo(
                     source_path=pack_root / "v01_UDIM_BAT_debugging.blend",
                     relpath_in_pack=PurePath("v01_UDIM_BAT_debugging.blend"),
-                    references={None},
                 ),
                 pack_root / "cube_UDIM.color.1001.png": file_usage.FileInfo(
                     source_path=pack_root / "cube_UDIM.color.1001.png",
@@ -209,7 +207,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 pack_root / "v01_UDIM_BAT_debugging.blend": file_usage.FileInfo(
                     source_path=pack_root / "v01_UDIM_BAT_debugging.blend",
                     relpath_in_pack=PurePath("v01_UDIM_BAT_debugging.blend"),
-                    references={None},
                     needs_path_rewriting=True,
                     rewrite_rules={udim_root_dir: pack_udim_root_dir},
                 ),
@@ -327,7 +324,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
             infile: file_usage.FileInfo(
                 source_path=infile,
                 relpath_in_pack=PurePath("image_sequence_dir_up.blend"),
-                references={None},
                 needs_path_rewriting=True,
                 rewrite_rules={imgseq_root_dir: pack_imgseq_dir},
             )
@@ -372,7 +368,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 infile: file_usage.FileInfo(
                     source_path=infile,
                     relpath_in_pack=PurePath("missing_textures.blend"),
-                    references={None},
                 ),
                 # These files are missing. They should still be listed in the dependencies, though.
                 missing_tex_1: file_usage.FileInfo(
@@ -412,7 +407,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 infile: file_usage.FileInfo(
                     source_path=infile,
                     relpath_in_pack=PurePath("missing_textures_dir_up.blend"),
-                    references={None},
                     needs_path_rewriting=False,  # Would need it if the files were not missing.
                 ),
                 # These files are missing. They should still be listed in the dependencies.
@@ -448,7 +442,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 infile: file_usage.FileInfo(
                     source_path=infile,
                     relpath_in_pack=PurePath(infile.name),
-                    references={None},
                 ),
                 pack_root
                 / "textures/Bricks/brick_dotted_04-color.jpg": file_usage.FileInfo(
@@ -479,7 +472,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 infile: file_usage.FileInfo(
                     source_path=infile,
                     relpath_in_pack=PurePath(infile.name),
-                    references={None},
                     needs_path_rewriting=True,
                     rewrite_rules={
                         blendfiles / "ies-lamp-external-assets": PurePath(
@@ -526,7 +518,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
             infile: file_usage.FileInfo(
                 source_path=infile,
                 relpath_in_pack=PurePath(infile.name),
-                references={None},
             )
         }
 
@@ -569,7 +560,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 infile: file_usage.FileInfo(
                     source_path=infile,
                     relpath_in_pack=PurePath(infile.name),
-                    references={None},
                 )
             },
         )
@@ -590,7 +580,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 infile: file_usage.FileInfo(
                     source_path=infile,
                     relpath_in_pack=PurePath(infile.name),
-                    references={None},
                 ),
                 abc_file: file_usage.FileInfo(
                     source_path=abc_file,
@@ -613,7 +602,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
             infile: file_usage.FileInfo(
                 source_path=infile,
                 relpath_in_pack=PurePath(infile.name),
-                references={None},
             )
         }
 
@@ -644,7 +632,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
             infile: file_usage.FileInfo(
                 source_path=infile,
                 relpath_in_pack=PurePath(infile.name),
-                references={None},
             )
         }
 
@@ -677,7 +664,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
             infile: file_usage.FileInfo(
                 source_path=infile,
                 relpath_in_pack=PurePath(infile.name),
-                references={None},
             )
         }
 
@@ -721,7 +707,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
             infile: file_usage.FileInfo(
                 source_path=infile,
                 relpath_in_pack=PurePath(infile.name),
-                references={None},
             )
         }
 
@@ -769,10 +754,9 @@ class PackedAssetsTest(unittest.TestCase):
             root_path=blendfiles,
             packed_source_file=infile,
             file_infoes={
-                blendfiles / "packed_assets.blend": file_usage.FileInfo(
-                    source_path=blendfiles / "packed_assets.blend",
+                infile: file_usage.FileInfo(
+                    source_path=infile,
                     relpath_in_pack=PurePath("packed_assets.blend"),
-                    references={None},
                 ),
             },
         )

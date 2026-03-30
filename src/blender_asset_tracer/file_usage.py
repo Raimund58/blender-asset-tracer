@@ -10,7 +10,7 @@ import functools
 import os.path
 from collections.abc import Generator, Iterable
 from pathlib import Path, PurePath
-from typing import Any
+from typing import Any, Literal
 
 import bpy  # pyright: ignore[reportMissingImports]
 
@@ -146,7 +146,7 @@ def _deps_repo_add_path(
     deps_repo: FileDependencyRepository,
     reported_path: Path,
     *,
-    used_by_library: BlendFile,
+    used_by_library: BlendFile | Literal["-none-"],
 ) -> None:
     """Add a file to the repository.
 
@@ -210,7 +210,7 @@ def _deps_repo_add_file_single(
     *,
     abspath: Path,
     reported_path: Path | None,
-    used_by_library: BlendFile,
+    used_by_library: BlendFile | Literal["-none-"],
 ) -> FileInfo:
     if abspath.exists():
         assert abspath.is_file(), f"{abspath} is not a file"
@@ -221,7 +221,8 @@ def _deps_repo_add_file_single(
         pass
     else:
         # Remember that this library blend file references this asset file.
-        file_info.references.add(used_by_library)
+        if used_by_library != "-none-":
+            file_info.references.add(used_by_library)
         return file_info
 
     # Construct all the file info. Most of this code just depends on the
@@ -234,7 +235,8 @@ def _deps_repo_add_file_single(
     deps_repo.file_infoes[abspath] = file_info
 
     # Remember that this library blend file references this asset file.
-    file_info.references.add(used_by_library)
+    if used_by_library != "-none-":
+        file_info.references.add(used_by_library)
 
     try:
         relpath_in_pack = PurePath(abspath.relative_to(deps_repo.root_path))
@@ -286,7 +288,7 @@ def _add_source_file(deps_repo: FileDependencyRepository) -> None:
 
     source_file = library_abspath(None)
     deps_repo.packed_source_file = source_file
-    _deps_repo_add_path(deps_repo, source_file, used_by_library=None)
+    _deps_repo_add_path(deps_repo, source_file, used_by_library="-none-")
 
 
 def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> None:

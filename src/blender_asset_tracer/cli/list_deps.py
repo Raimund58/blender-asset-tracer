@@ -172,10 +172,6 @@ def _print_file_tree(deps_repo: _FileDependencyRepository) -> None:
         user_file_path = user_file_info.source_path
         used_paths = dependencies[user_file_path]
 
-        # Internally the main blend file depends on itself, but that doesn't
-        # need to be shown here.
-        used_paths.discard(user_file_path)
-
         print(_print_path(user_file_path))
         for lib_path in sorted(used_paths):
             print(f"    {_print_path(lib_path)}")

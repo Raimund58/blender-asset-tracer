@@ -10,4 +10,5 @@ __pycache__
 /dist/
 /build/
 
-/docs/_build
+# Documentation is built here by `uv run zensical build`.
+/site/

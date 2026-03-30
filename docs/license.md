@@ -1,10 +1,8 @@
-Licence
-=======
+# Licence
 
 This section describes the licenses for both the software and the documentation.
 
-Software
---------
+## Software
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,29 +19,28 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-Documentation
--------------
+## Documentation
 
-This documentation is covered by the `Creative Commons BY-SA 4.0 license`_.
+This documentation is covered by the [Creative Commons BY-SA 4.0 license][CC-BY].
 
-.. _`Creative Commons BY-SA 4.0 license`: https://creativecommons.org/licenses/by-sa/4.0/
+[CC-BY]: https://creativecommons.org/licenses/by-sa/4.0/
 
 This is a human-readable summary of (and not a substitute for) the license.
 Disclaimer. You are free to:
 
-    - Share — copy and redistribute the material in any medium or format
-    - Adapt — remix, transform, and build upon the material for any purpose,
-      even commercially.
+- Share — copy and redistribute the material in any medium or format
+- Adapt — remix, transform, and build upon the material for any purpose,
+  even commercially.
 
 Under the following terms:
 
-    - Attribution — You must give appropriate credit, provide a link to the
-      license, and indicate if changes were made. You may do so in any
-      reasonable manner, but not in any way that suggests the licensor endorses
-      you or your use.
+- Attribution — You must give appropriate credit, provide a link to the
+  license, and indicate if changes were made. You may do so in any
+  reasonable manner, but not in any way that suggests the licensor endorses
+  you or your use.
 
-    - ShareAlike — If you remix, transform, or build upon the material, you must
-      distribute your contributions under the same license as the original.
+- ShareAlike — If you remix, transform, or build upon the material, you must
+  distribute your contributions under the same license as the original.
 
 No additional restrictions — You may not apply legal terms or technological
 measures that legally restrict others from doing anything the license permits.

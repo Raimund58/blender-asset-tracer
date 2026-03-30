@@ -706,10 +706,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
         directory, and not each file it uses in that directory.
         """
 
-        if bpy.app.version <= (5, 1, 0) and bpy.app.version_cycle == "release":
-            self.skipTest(
-                "Blender 5.1.0 has known bug #155953 that makes this test fail"
-            )
+        self.skipTest("Blender 5.1.0 has known bug #155953 that makes this test fail")
 
         pack_root = blendfiles / "geometry-nodes-sim"
         infile = pack_root / "geonodes-sim-cache.blend"

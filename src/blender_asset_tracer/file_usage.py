@@ -55,8 +55,24 @@ class Options:
 
 
 class PathType(enum.Enum):
-    ABSOLUTE = 1
-    RELATIVE = 2
+    """Records the path type by which file A uses file B.
+
+    The numerical values of the enum items are in order of dominance. If
+    there's multiple ways in which A uses B (for example, a scratch texture
+    used by various materials), the most dominant type wins.
+    """
+
+    # Relative path. Unless it references a file outside the project root,
+    # no rewriting is necessary.
+    RELATIVE = 0
+
+    # Uknown path. Linking between blend files doesn't allow introspection of
+    # which blend file is using which exact path to refer to its libraries.
+    UNKNOWN = 1
+
+    # Absolute path. These always need to be rewritten, because the BAT pack is
+    # going to be at a different absolute path.
+    ABSOLUTE = 2
 
     @classmethod
     def for_bpath(cls, blender_path: str) -> PathType:
@@ -130,9 +146,19 @@ class FileInfo:
         return self.rewritten_file_path or self.source_path
 
     def add_reference(self, blendfile: BlendFile, path_type: PathType) -> None:
-        match self.references.get(blendfile, None):
+        # Whether the new path type overwrites the existing path type depends on
+        # the existing path type.
+        existing_type = self.references.get(blendfile, None)
+        match existing_type:
             case PathType.ABSOLUTE:
                 return
+            case PathType.UNKNOWN:
+                match path_type:
+                    # Only ABSOLUTE gets to overwrite UNKNOWN.
+                    case PathType.ABSOLUTE:
+                        self.references[blendfile] = path_type
+                    case _:
+                        return
             case PathType.RELATIVE:
                 self.references[blendfile] = path_type
             case None:
@@ -337,7 +363,6 @@ def determine_dependencies(
             # Not actually a file on disk.
             continue
 
-        path_type = PathType.for_bpath(used_library.filepath)
         used_lib_path = library_abspath(used_library)
 
         for id_user in ids_using_some_id:
@@ -348,7 +373,7 @@ def determine_dependencies(
                 deps_repo,
                 used_lib_path,
                 used_by_library=id_user.library,
-                path_type=path_type,
+                path_type=PathType.UNKNOWN,
             )
 
     # Step 2: find all paths to non-blendfiles.

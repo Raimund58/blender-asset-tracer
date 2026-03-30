@@ -1,87 +1,61 @@
 # SPDX-FileCopyrightText: 2026 Blender Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""
-To run:
-
-Assume the opened blend file sits in the project root:
-
-$ blender -b tests/blendfiles/root/scene.blend -P file_path_visit.py
-
-Explicitly provide a root path:
-
-$ blender -b tests/blendfiles/root/scene.blend -P file_path_visit.py -- -r /some/other/root
-
-"""
 
 from __future__ import annotations
 
-import dataclasses
-import sys
+import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-try:
-    import bpy  # pyright: ignore[reportMissingImports]
-except ImportError:
-    print(f"Run as: blender -b file/to/pack.blend -P {Path(__file__).name}")
-    raise SystemExit(1)
+if TYPE_CHECKING:
+    from ..file_usage import FileDependencyRepository as _FileDependencyRepository
+else:
+    _FileDependencyRepository = object
 
-# Ensure BAT can be imported, even when it's not installed as package.
-_my_dir = Path(__file__).absolute().parent
-if str(_my_dir) not in sys.path:
-    sys.path.append(str(_my_dir))
-
-
-from blender_asset_tracer import file_usage
 
 ANSI_REWRITING = 37
 ANSI_RELOCATING = 93
 ANSI_BOTH = 95
 ANSI_PLAIN = 90
 
+log = logging.getLogger(__name__)
 
-def main(cli_args: CLIArgs) -> None:
-    # show_file_references(cli_args.root_path)
-    # print()
-    listdeps(cli_args.root_path)
-    _footer()
-
-
-def show_file_references(root_path: Path) -> None:
-    _header(f"Listing file paths relative to \033[95m{root_path}\033[0m:")
-
-    def visit_path_fn(owner_id: bpy.types.ID, path: str, _: Any) -> str | None:
-        abspath = file_usage.path_absolute(path, library=owner_id.library)
-
-        try:
-            printpath = abspath.relative_to(root_path)
-            needs_relocation = False
-        except ValueError:
-            printpath = abspath
-            needs_relocation = True
-
-        if owner_id.library:
-            lib = owner_id.library.filepath
-        else:
-            lib = "(local)"
-
-        print(
-            f"  {owner_id.id_type:10} id={_elide(owner_id.name, 30):30} lib={_elide(lib, 40):<40}",
-            end="",
-        )
-
-        if abspath.exists():
-            print(f"\033[{96 if needs_relocation else 92}m{printpath}\033[0m")
-        else:
-            print(f"\033[91m{printpath}\033[0m")
-
-        return None
-
-    bpy.data.file_path_foreach(visit_path_fn)
+# The 'argparse' module doesn't nicely expose its types.
+type ArgSubParser = Any
+type CLIArguments = Any
 
 
-def listdeps(root_path: Path) -> None:
-    # Investigate the blend file, and figure out the dependencies.
+def add_parser(subparsers: ArgSubParser) -> None:
+    """Add argparser for this subcommand."""
+
+    parser = subparsers.add_parser("debug", help=__doc__)
+    parser.set_defaults(func=cli_debug)
+    parser.add_argument("blendfile", type=Path)
+    parser.add_argument(
+        "-r",
+        "--root",
+        type=Path,
+        default=None,
+        help="Root directory of the project. If not given, the blend file is assumed to be at the root.",
+    )
+
+
+def cli_debug(args: CLIArguments) -> int:
+    import bpy  # pyright: ignore[reportMissingImports]
+
+    from .. import file_usage
+
+    # Convert the CLI arguments to typed variables.
+    blendfile: Path = args.blendfile
+    root_path: Path = (
+        args.root.resolve() if args.root else args.blendfile.resolve().parent
+    )
+
+    if not blendfile.exists():
+        log.error("File %s does not exist", args.blendfile)
+        return 3
+
+    bpy.ops.wm.open_mainfile(filepath=str(blendfile))
     deps_repo = file_usage.dependencies_of_current_blendfile(root_path)
 
     # Present the info to the terminal.
@@ -89,10 +63,12 @@ def listdeps(root_path: Path) -> None:
     print_relocation_rewriting_needs(deps_repo)
     print_rewrite_rules(deps_repo)
 
+    return 0
 
-def print_all_files(
-    deps_repo: file_usage.FileDependencyRepository, root_path: Path
-) -> None:
+
+def print_all_files(deps_repo: _FileDependencyRepository, root_path: Path) -> None:
+    from .. import file_usage
+
     _header(f"All files (paths relative to \033[95m{root_path}\033[0m)")
 
     for abs_path, info in deps_repo.file_infoes.items():
@@ -118,7 +94,7 @@ def print_all_files(
 
 
 def print_relocation_rewriting_needs(
-    deps_repo: file_usage.FileDependencyRepository,
+    deps_repo: _FileDependencyRepository,
 ) -> None:
     _header(
         f"Blend files needing "
@@ -139,7 +115,7 @@ def print_relocation_rewriting_needs(
         print(f"  - \033[{colour}m{abs_path}\033[0m")
 
 
-def print_rewrite_rules(deps_repo: file_usage.FileDependencyRepository) -> None:
+def print_rewrite_rules(deps_repo: _FileDependencyRepository) -> None:
     shown_header = False
     for abs_path, file_info in deps_repo.file_infoes.items():
         if not file_info.needs_path_rewriting:
@@ -153,11 +129,6 @@ def print_rewrite_rules(deps_repo: file_usage.FileDependencyRepository) -> None:
         for from_path, to_path in file_info.rewrite_rules.items():
             print(f"    - \033[{ANSI_RELOCATING}m{from_path}\033[0m")
             print(f"      {to_path}")
-
-
-@dataclasses.dataclass
-class CLIArgs:
-    root_path: Path
 
 
 def _header(string: str) -> None:
@@ -185,28 +156,3 @@ def _elide(string: Any, maxlen: int) -> str:
     dotdotdot = "…"
     half = (maxlen - len(dotdotdot)) // 2
     return f"{string[:half]}{dotdotdot}{string[-half:]}"
-
-
-def _parse_cli_args() -> CLIArgs:
-    import argparse
-    import sys
-
-    if "--" in sys.argv:
-        argv = sys.argv[sys.argv.index("--") + 1 :]
-    else:
-        argv = []
-
-    current_blendfile_path = file_usage.path_absolute(bpy.data.filepath)
-    current_blendfile_dir = current_blendfile_path.parent
-
-    my_name = Path(__file__).name
-    parser = argparse.ArgumentParser(my_name)
-    parser.add_argument("-r", "--root", type=Path, default=current_blendfile_dir)
-    parser.add_argument("-j", "--json", action="store_true", default=False)
-    args = parser.parse_args(argv)
-
-    return CLIArgs(root_path=file_usage.path_absolute(args.root))
-
-
-if __name__ == "__main__":
-    main(_parse_cli_args())

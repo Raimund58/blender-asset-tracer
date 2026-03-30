@@ -121,27 +121,27 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 blendfiles / "imgseq/000210.png": file_usage.FileInfo(
                     source_path=blendfiles / "imgseq/000210.png",
                     relpath_in_pack=PurePath("imgseq/000210.png"),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
                 blendfiles / "imgseq/000211.png": file_usage.FileInfo(
                     source_path=blendfiles / "imgseq/000211.png",
                     relpath_in_pack=PurePath("imgseq/000211.png"),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
                 blendfiles / "imgseq/000212.png": file_usage.FileInfo(
                     source_path=blendfiles / "imgseq/000212.png",
                     relpath_in_pack=PurePath("imgseq/000212.png"),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
                 blendfiles / "imgseq/000213.png": file_usage.FileInfo(
                     source_path=blendfiles / "imgseq/000213.png",
                     relpath_in_pack=PurePath("imgseq/000213.png"),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
                 blendfiles / "imgseq/000214.png": file_usage.FileInfo(
                     source_path=blendfiles / "imgseq/000214.png",
                     relpath_in_pack=PurePath("imgseq/000214.png"),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
             },
         )
@@ -169,19 +169,19 @@ class FileBasedIntegrationTests(unittest.TestCase):
                     source_path=pack_root / "cube_UDIM.color.1001.png",
                     reported_path=pack_root / "cube_UDIM.color.<UDIM>.png",
                     relpath_in_pack=PurePath("cube_UDIM.color.1001.png"),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
                 pack_root / "cube_UDIM.color.1002.png": file_usage.FileInfo(
                     source_path=pack_root / "cube_UDIM.color.1002.png",
                     reported_path=pack_root / "cube_UDIM.color.<UDIM>.png",
                     relpath_in_pack=PurePath("cube_UDIM.color.1002.png"),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
                 pack_root / "cube_UDIM.color.1003.png": file_usage.FileInfo(
                     source_path=pack_root / "cube_UDIM.color.1003.png",
                     reported_path=pack_root / "cube_UDIM.color.<UDIM>.png",
                     relpath_in_pack=PurePath("cube_UDIM.color.1003.png"),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
             },
         )
@@ -214,21 +214,21 @@ class FileBasedIntegrationTests(unittest.TestCase):
                     source_path=udim_root_dir / "cube_UDIM.color.1001.png",
                     reported_path=udim_root_dir / "cube_UDIM.color.<UDIM>.png",
                     relpath_in_pack=pack_udim_root_dir / "cube_UDIM.color.1001.png",
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                     needs_relocation=True,
                 ),
                 udim_root_dir / "cube_UDIM.color.1002.png": file_usage.FileInfo(
                     source_path=udim_root_dir / "cube_UDIM.color.1002.png",
                     reported_path=udim_root_dir / "cube_UDIM.color.<UDIM>.png",
                     relpath_in_pack=pack_udim_root_dir / "cube_UDIM.color.1002.png",
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                     needs_relocation=True,
                 ),
                 udim_root_dir / "cube_UDIM.color.1003.png": file_usage.FileInfo(
                     source_path=udim_root_dir / "cube_UDIM.color.1003.png",
                     reported_path=udim_root_dir / "cube_UDIM.color.<UDIM>.png",
                     relpath_in_pack=pack_udim_root_dir / "cube_UDIM.color.1003.png",
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                     needs_relocation=True,
                 ),
             },
@@ -339,7 +339,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             expect_file_infoes[img_path] = file_usage.FileInfo(
                 source_path=img_path,
                 relpath_in_pack=pack_imgseq_dir / name,
-                references={None},
+                references={None: file_usage.PathType.RELATIVE},
                 needs_path_rewriting=False,
                 needs_relocation=True,
             )
@@ -373,12 +373,12 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 missing_tex_1: file_usage.FileInfo(
                     source_path=missing_tex_1,
                     relpath_in_pack=PurePath(missing_tex_1.relative_to(blendfiles)),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
                 missing_tex_2: file_usage.FileInfo(
                     source_path=missing_tex_2,
                     relpath_in_pack=PurePath(missing_tex_2.relative_to(blendfiles)),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
             },
         )
@@ -413,13 +413,13 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 tex_dir / missing_tex_1: file_usage.FileInfo(
                     source_path=tex_dir / missing_tex_1,
                     relpath_in_pack=tex_dir_in_pack / missing_tex_1,
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                     needs_relocation=False,  # Because the file is missing.
                 ),
                 tex_dir / missing_tex_2: file_usage.FileInfo(
                     source_path=tex_dir / missing_tex_2,
                     relpath_in_pack=tex_dir_in_pack / missing_tex_2,
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                     needs_relocation=False,  # Because the file is missing.
                 ),
             },
@@ -449,7 +449,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
                     relpath_in_pack=PurePath(
                         "textures/Bricks/brick_dotted_04-color.jpg"
                     ),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
                 # The other image shouldn't be here, as it refers to
                 # 'buildings_roof_04-color.png' by absolute path.
@@ -482,14 +482,14 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 pack_root / "texture_ies/star.ies": file_usage.FileInfo(
                     source_path=pack_root / "texture_ies/star.ies",
                     relpath_in_pack=PurePath("texture_ies/star.ies"),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
                 blendfiles / "ies-lamp-external-assets/star.ies": file_usage.FileInfo(
                     source_path=blendfiles / "ies-lamp-external-assets/star.ies",
                     relpath_in_pack=PurePath(
                         "_outside_project/ies-lamp-external-assets/star.ies"
                     ),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                     needs_relocation=True,
                 ),
             },
@@ -528,7 +528,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             file_infoes[bphys_file] = file_usage.FileInfo(
                 source_path=bphys_file,
                 relpath_in_pack=PurePath(bphys_file.relative_to(pack_root)),
-                references={None},
+                references={None: file_usage.PathType.RELATIVE},
             )
 
         expect_repo = file_usage.FileDependencyRepository(
@@ -584,7 +584,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 abc_file: file_usage.FileInfo(
                     source_path=abc_file,
                     relpath_in_pack=PurePath(abc_file.relative_to(pack_root)),
-                    references={None},
+                    references={None: file_usage.PathType.RELATIVE},
                 ),
             },
         )
@@ -610,7 +610,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             file_infoes[abc_file] = file_usage.FileInfo(
                 source_path=abc_file,
                 relpath_in_pack=PurePath(abc_file.relative_to(pack_root)),
-                references={None},
+                references={None: file_usage.PathType.RELATIVE},
             )
 
         expect_repo = file_usage.FileDependencyRepository(
@@ -643,7 +643,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             file_infoes[file] = file_usage.FileInfo(
                 source_path=file,
                 relpath_in_pack=PurePath(file.relative_to(pack_root)),
-                references={None},
+                references={None: file_usage.PathType.RELATIVE},
             )
         expect_repo = file_usage.FileDependencyRepository(
             root_path=pack_root,
@@ -675,7 +675,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             file_infoes[file] = file_usage.FileInfo(
                 source_path=file,
                 relpath_in_pack=PurePath(file.relative_to(pack_root)),
-                references={None},
+                references={None: file_usage.PathType.RELATIVE},
             )
 
         expect_repo = file_usage.FileDependencyRepository(
@@ -715,7 +715,7 @@ class FileBasedIntegrationTests(unittest.TestCase):
             file_infoes[file] = file_usage.FileInfo(
                 source_path=file,
                 relpath_in_pack=PurePath(file.relative_to(pack_root)),
-                references={None},
+                references={None: file_usage.PathType.RELATIVE},
             )
         expect_repo = file_usage.FileDependencyRepository(
             root_path=pack_root,

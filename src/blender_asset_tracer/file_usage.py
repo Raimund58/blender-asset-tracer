@@ -719,12 +719,13 @@ def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
     """Determine while file needs path rewriting.
 
     Sets file_info.needs_path_rewriting=True and file_info.rewrite_rules on all
-    files that reference a relocated file.
+    files that reference a relocated file, or that reference any file by absolute
+    path.
     """
 
     libraries_needing_rewriting: set[BlendFile] = set()
 
-    # Step 1: find all libraries that need rewriting.
+    # Find all libraries that need rewriting because of relocation.
     for file_info in repo.file_infoes.values():
         if not file_info.needs_relocation:
             continue
@@ -743,7 +744,17 @@ def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
 
         libraries_needing_rewriting |= set(file_info.references)
 
-    # Step 2: find the file_info instances for those libraries, and mark them.
+    # Find all libraries that need rewriting because they reference things by
+    # absolute paths.
+    for file_info in repo.file_infoes.values():
+        for ref, path_type in file_info.references.items():
+            if path_type == PathType.RELATIVE:
+                continue
+
+            # 'ref' is referring to 'file_info' by absolute path.
+            libraries_needing_rewriting.add(ref)
+
+    # Find the file_info instances for those libraries, and mark them.
     for library in libraries_needing_rewriting:
         abs_path = library_abspath(library)
         assert abs_path is not None
@@ -752,7 +763,9 @@ def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
         file_info = repo.file_infoes[abs_path]
         file_info.needs_path_rewriting = True
 
-    # Step 3: determine the rewrite rules.
+    # Determine the rewrite rules. This is only necessary when referencing
+    # relocated files. Rewriting absolute to relative paths doesn't need any
+    # rules, as that's always done.
     for file_abs_path, file_info in repo.file_infoes.items():
         assert file_info.relpath_in_pack is not None, (
             "by now all paths in the pack should be known"

@@ -37,19 +37,22 @@ class FileUsageTest(unittest.TestCase):
                 source_path=root / "char/cube.blend",
                 needs_relocation=False,
                 relpath_in_pack=PurePath("char/cube.blend"),
-                references={None},
+                references={None: file_usage.PathType.RELATIVE},
             ),
             root / "char/little_cube.blend": file_usage.FileInfo(
                 source_path=root / "char/little_cube.blend",
                 needs_relocation=False,
                 relpath_in_pack=PurePath("char/little_cube.blend"),
-                references={None},
+                references={None: file_usage.PathType.RELATIVE},
             ),
             root.parent / "material_textures.blend": file_usage.FileInfo(
                 source_path=root.parent / "material_textures.blend",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
-                references={libs["cube.blend"], libs["little_cube.blend"]},
+                references={
+                    libs["cube.blend"]: file_usage.PathType.RELATIVE,
+                    libs["little_cube.blend"]: file_usage.PathType.RELATIVE,
+                },
             ),
             # Other assets:
             root.parent
@@ -57,14 +60,18 @@ class FileUsageTest(unittest.TestCase):
                 source_path=root.parent / "textures/Bricks/brick_dotted_04-bump.jpg",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
-                references={libs["material_textures.blend"]},
+                references={
+                    libs["material_textures.blend"]: file_usage.PathType.RELATIVE
+                },
             ),
             root.parent
             / "textures/Bricks/brick_dotted_04-color.jpg": file_usage.FileInfo(
                 source_path=root.parent / "textures/Bricks/brick_dotted_04-color.jpg",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
-                references={libs["material_textures.blend"]},
+                references={
+                    libs["material_textures.blend"]: file_usage.PathType.RELATIVE
+                },
             ),
             root.parent
             / "textures/Textures/Buildings/buildings_roof_04-color.jpg": file_usage.FileInfo(
@@ -72,7 +79,9 @@ class FileUsageTest(unittest.TestCase):
                 / "textures/Textures/Buildings/buildings_roof_04-color.jpg",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
-                references={libs["material_textures.blend"]},
+                references={
+                    libs["material_textures.blend"]: file_usage.PathType.RELATIVE
+                },
             ),
         }
 
@@ -101,41 +110,86 @@ class FileUsageTest(unittest.TestCase):
                 source_path=blendfiles / "textures/Bricks/brick_dotted_04-color.jpg",
                 needs_relocation=False,
                 relpath_in_pack=PurePath("textures/Bricks/brick_dotted_04-color.jpg"),
-                references={None},
+                references={None: file_usage.PathType.RELATIVE},
             ),
         }
 
         self.maxDiff = None
         self.assertEqual(expected, deps_repo.file_infoes)
 
-    def test_absolute_references_inside_project(self) -> None:
+    def test_absolute_references_inside_project_nonblend(self) -> None:
         # Test what happens when file references are absolute, but still point
         # within the project root. Such paths will have to be rewritten.
+
+        # "material_textures.blend" links a few image files.
+        infile = blendfiles / "material_textures.blend"
+        load_blendfile(infile)
+
+        # Tweak the library link, so that two image data-blocks refer to the
+        # same file on disk. One with absolute path, and the other with
+        # relative.
+        image0 = bpy.data.images["brick_dotted_04-bump"]
+        image1 = bpy.data.images["brick_dotted_04-color"]
+        image0.filepath = image1.filepath
+        image1.filepath = bpy.path.abspath(image1.filepath)
+
+        deps_repo = file_usage.dependencies_of_current_blendfile(blendfiles)
+
+        expected = {
+            # The currently-open blend file itself:
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                relpath_in_pack=PurePath("material_textures.blend"),
+                needs_path_rewriting=True,  # Because of the absolute path.
+            ),
+            # Images:
+            blendfiles
+            / "textures/Bricks/brick_dotted_04-color.jpg": file_usage.FileInfo(
+                source_path=blendfiles / "textures/Bricks/brick_dotted_04-color.jpg",
+                relpath_in_pack=PurePath("textures/Bricks/brick_dotted_04-color.jpg"),
+                references={None: file_usage.PathType.ABSOLUTE},
+            ),
+            blendfiles
+            / "textures/Textures/Buildings/buildings_roof_04-color.jpg": file_usage.FileInfo(
+                source_path=blendfiles
+                / "textures/Textures/Buildings/buildings_roof_04-color.jpg",
+                relpath_in_pack=PurePath(
+                    "textures/Textures/Buildings/buildings_roof_04-color.jpg"
+                ),
+                references={None: file_usage.PathType.RELATIVE},
+            ),
+        }
+
+        self.maxDiff = None
+        self.assertEqual(expected, deps_repo.file_infoes)
+
+    def test_absolute_references_inside_project_blendfile(self) -> None:
+        # Test what happens when file references are absolute, but still point
+        # within the project root. Such paths will have to be rewritten.
+
+        # "linked_cube.blend" links the cube from "basic_file.blend".
         infile = blendfiles / "linked_cube.blend"
         load_blendfile(infile)
 
         # Tweak the library link, so that the library blend file is referred to
         # by absolute path.
-        bpy.data.libraries["Lib"].filepath = bpy.path.abspath(
-            bpy.data.libraries["Lib"].filepath
-        )
+        lib = bpy.data.libraries["Lib"]
+        lib.filepath = bpy.path.abspath(lib.filepath)
 
-        deps_repo = file_usage.FileDependencyRepository(blendfiles)
-        file_usage.determine_dependencies(deps_repo, file_usage.Options())
+        deps_repo = file_usage.dependencies_of_current_blendfile(blendfiles)
 
         expected = {
             # The currently-open blend file itself:
             infile: file_usage.FileInfo(
                 source_path=infile,
                 relpath_in_pack=PurePath("linked_cube.blend"),
-                references={None},
                 needs_path_rewriting=True,  # Because the library reference needs updating.
             ),
             # Library Blend file:
             blendfiles / "basic_file.blend": file_usage.FileInfo(
                 source_path=blendfiles / "basic_file.blend",
                 relpath_in_pack=PurePath("basic_file.blend"),
-                references={None},
+                references={None: file_usage.PathType.ABSOLUTE},
             ),
         }
 
@@ -200,7 +254,11 @@ class PathsOutsideProjectsTest(unittest.TestCase):
         repo = file_usage.FileDependencyRepository(root_path)
         for path in self.paths:
             file_usage._deps_repo_add_file_single(
-                repo, abspath=path, reported_path=None, used_by_library=None
+                repo,
+                abspath=path,
+                reported_path=None,
+                used_by_library="-none-",
+                path_type=file_usage.PathType.RELATIVE,
             )
 
         file_usage._determine_pack_paths_clustered(repo)

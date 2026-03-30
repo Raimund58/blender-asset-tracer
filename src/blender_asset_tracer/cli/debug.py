@@ -32,8 +32,8 @@ def add_parser(subparsers: ArgSubParser) -> None:
     parser.set_defaults(func=cli_debug)
     parser.add_argument("blendfile", type=Path)
     parser.add_argument(
-        "-r",
-        "--root",
+        "-p",
+        "--project",
         type=Path,
         default=None,
         help="Root directory of the project. If not given, the blend file is assumed to be at the root.",
@@ -48,7 +48,7 @@ def cli_debug(args: CLIArguments) -> int:
     # Convert the CLI arguments to typed variables.
     blendfile: Path = args.blendfile
     root_path: Path = (
-        args.root.resolve() if args.root else args.blendfile.resolve().parent
+        args.project.resolve() if args.project else args.blendfile.resolve().parent
     )
 
     if not blendfile.exists():
@@ -86,12 +86,11 @@ def print_all_files(deps_repo: _FileDependencyRepository, root_path: Path) -> No
 
         print(f"\033[{color}m{relpath}\033[0m:")
         print(f"    in_pack = \033[{in_pack_color}m{in_pack}\033[0m")
-        for ref, path_type in info.references.items():
+        for ref in info.references:
             ref_path = file_usage.library_abspath(ref).relative_to(
                 root_path, walk_up=True
             )
-            print(f"    ref by   = {ref_path if ref else '(local)'}")
-            print(f"    ref type = {path_type.name.lower()}")
+            print(f"    ref by  = {ref_path if ref else '(local)'}")
 
 
 def print_relocation_rewriting_needs(

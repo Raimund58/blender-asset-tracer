@@ -63,18 +63,14 @@ class PathType(enum.Enum):
     # no rewriting is necessary.
     RELATIVE = 0
 
-    # Uknown path. Linking between blend files doesn't allow introspection of
-    # which blend file is using which exact path to refer to its libraries.
-    UNKNOWN = 1
-
     # Absolute path. These always need to be rewritten, because the BAT pack is
     # going to be at a different absolute path.
-    ABSOLUTE = 2
+    ABSOLUTE = 1
 
     @classmethod
-    def for_bpath(cls, blender_path: str) -> PathType:
+    def for_bpath(cls, path_from_blender: str) -> PathType:
         """Return the path type for the given Blender path."""
-        if blender_path[:2] == "//":
+        if _is_blender_path_absolute(path_from_blender):
             return cls.RELATIVE
         return cls.ABSOLUTE
 
@@ -146,22 +142,8 @@ class FileInfo:
         # Whether the new path type overwrites the existing path type depends on
         # the existing path type.
         existing_type = self.references.get(blendfile, None)
-        match existing_type:
-            case PathType.ABSOLUTE:
-                # ABSOLUTE is the dominant type, because use of an absolute path
-                # means the user has to be rewritten to use a relative path.
-                return
-            case PathType.UNKNOWN:
-                match path_type:
-                    # Only ABSOLUTE gets to overwrite UNKNOWN.
-                    case PathType.ABSOLUTE:
-                        self.references[blendfile] = path_type
-                    case _:
-                        return
-            case PathType.RELATIVE:
-                self.references[blendfile] = path_type
-            case None:
-                self.references[blendfile] = path_type
+        if existing_type is None or path_type.value > existing_type.value:
+            self.references[blendfile] = path_type
 
 
 @dataclasses.dataclass

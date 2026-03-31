@@ -149,17 +149,17 @@ def _print_sha256sums(deps_repo: _FileDependencyRepository) -> float:
 
 
 def _print_file_tree(deps_repo: _FileDependencyRepository) -> None:
-    from ..file_usage import FileInfo, library_abspath
+    from ..file_usage import FileInfo, PathType, library_abspath
 
     # Build a map of file references.
     # Maps 'user file' to 'used file'.
-    dependencies: dict[Path, set[Path]] = defaultdict(set)
+    dependencies: dict[Path, dict[Path, PathType]] = defaultdict(dict)
     for used_file_info in deps_repo.file_infoes.values():
         used_file_path = used_file_info.source_path
         # Go over all incoming references to see what uses this file.
-        for user_lib in used_file_info.references:
+        for user_lib, path_type in used_file_info.references.items():
             user_file_path = library_abspath(user_lib)
-            dependencies[user_file_path].add(used_file_path)
+            dependencies[user_file_path][used_file_path] = path_type
 
     root_path = deps_repo.root_path
 

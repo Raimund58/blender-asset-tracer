@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import enum
 import fnmatch
 import functools
 import os.path
@@ -22,6 +23,7 @@ __all__ = (
     "FileDependencyRepository",
     "dependencies_of_current_blendfile",
     "path_absolute",
+    "is_blender_path_absolute",
     "library_abspath",
     "library_is_archive",
     "cache_clear",
@@ -48,6 +50,30 @@ class Options:
     # Can be used to exclude things like Alembic files ('*.abc') or legacy
     # particle system caches ('*.bphys').
     ignore_globs: set[str] = dataclasses.field(default_factory=set)
+
+
+class PathType(enum.Enum):
+    """Records the path type by which file A uses file B.
+
+    The numerical values of the enum items are in order of dominance. If
+    there's multiple ways in which A uses B (for example, a scratch texture
+    used by various materials), the most dominant type wins.
+    """
+
+    # Relative path. Unless it references a file outside the project root,
+    # no rewriting is necessary.
+    RELATIVE = 0
+
+    # Absolute path. These always need to be rewritten, because the BAT pack is
+    # going to be at a different absolute path.
+    ABSOLUTE = 1
+
+    @classmethod
+    def for_bpath(cls, path_from_blender: str) -> PathType:
+        """Return the path type for the given Blender path."""
+        if is_blender_path_absolute(path_from_blender):
+            return cls.ABSOLUTE
+        return cls.RELATIVE
 
 
 @dataclasses.dataclass
@@ -80,7 +106,9 @@ class FileInfo:
 
     # Indicator that this file needs path rewriting.
     #
-    # This means that this file referenced a file that has `needs_relocation=True`.
+    # This means that this file referenced a file that has
+    # `needs_relocation=True`, or it references a dependency by absolute path
+    # (which has to be turned into a relative path). Or both.
     needs_path_rewriting: bool = False
 
     # The path, relative to the project root, where this file will sit on the
@@ -89,7 +117,11 @@ class FileInfo:
     relpath_in_pack: PurePath | None = None
 
     # Library files that contain data-blocks that reference this file.
-    references: set[BlendFile] = dataclasses.field(default_factory=set)
+    #
+    # Absolute paths are 'dominant': if there are multiple references, and one
+    # of them was with an absolute path, the absolute path 'wins' and determines
+    # the value in the dictionary.
+    references: dict[BlendFile, PathType] = dataclasses.field(default_factory=dict)
 
     # Rewrite rules that should be applied to this file.
     # Should only be set when `needs_path_rewriting=True`.
@@ -106,6 +138,13 @@ class FileInfo:
         file. Otherwise this is just the source file.
         """
         return self.rewritten_file_path or self.source_path
+
+    def add_reference(self, blendfile: BlendFile, path_type: PathType) -> None:
+        # Whether the new path type overwrites the existing path type depends on
+        # the existing path type.
+        existing_type = self.references.get(blendfile, None)
+        if existing_type is None or path_type.value > existing_type.value:
+            self.references[blendfile] = path_type
 
 
 @dataclasses.dataclass
@@ -147,6 +186,7 @@ def _deps_repo_add_path(
     reported_path: Path,
     *,
     used_by_library: BlendFile | Literal["-none-"],
+    path_type: PathType,
 ) -> None:
     """Add a file to the repository.
 
@@ -169,6 +209,7 @@ def _deps_repo_add_path(
                 abspath=file_path,
                 reported_path=None,
                 used_by_library=used_by_library,
+                path_type=path_type,
             )
         return
 
@@ -185,6 +226,7 @@ def _deps_repo_add_path(
             abspath=reported_path,
             reported_path=None,
             used_by_library=used_by_library,
+            path_type=path_type,
         )
         return
 
@@ -202,6 +244,7 @@ def _deps_repo_add_path(
             abspath=abs_path,
             reported_path=reported_path,
             used_by_library=used_by_library,
+            path_type=path_type,
         )
 
 
@@ -211,6 +254,7 @@ def _deps_repo_add_file_single(
     abspath: Path,
     reported_path: Path | None,
     used_by_library: BlendFile | Literal["-none-"],
+    path_type: PathType,
 ) -> FileInfo:
     if abspath.exists():
         assert abspath.is_file(), f"{abspath} is not a file"
@@ -222,7 +266,7 @@ def _deps_repo_add_file_single(
     else:
         # Remember that this library blend file references this asset file.
         if used_by_library != "-none-":
-            file_info.references.add(used_by_library)
+            file_info.add_reference(used_by_library, path_type)
         return file_info
 
     # Construct all the file info. Most of this code just depends on the
@@ -236,7 +280,7 @@ def _deps_repo_add_file_single(
 
     # Remember that this library blend file references this asset file.
     if used_by_library != "-none-":
-        file_info.references.add(used_by_library)
+        file_info.add_reference(used_by_library, path_type)
 
     try:
         relpath_in_pack = PurePath(abspath.relative_to(deps_repo.root_path))
@@ -288,7 +332,12 @@ def _add_source_file(deps_repo: FileDependencyRepository) -> None:
 
     source_file = library_abspath(None)
     deps_repo.packed_source_file = source_file
-    _deps_repo_add_path(deps_repo, source_file, used_by_library="-none-")
+    _deps_repo_add_path(
+        deps_repo,
+        source_file,
+        used_by_library="-none-",
+        path_type=PathType.RELATIVE,  # Value doesn't matter here.
+    )
 
 
 def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> None:
@@ -314,11 +363,22 @@ def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> No
             if id_user.library == used_library:
                 continue
 
-            # id_user_lib_path = library_abspath(used_library)
+            if id_user.library is None:
+                # This is only correct for directly-linked blend files, and so
+                # only used when the data-block is used by a local data-block.
+                path_type = PathType.for_bpath(used_library.filepath)
+            else:
+                # To determine this for indirectly linked files (so libraries
+                # linking other libraries), they need to be opened by themselves
+                # and investigated further. For now, pray that the project is
+                # set up sanely and uses relative paths for library linking.
+                path_type = PathType.RELATIVE
+
             _deps_repo_add_path(
                 deps_repo,
                 used_lib_path,
                 used_by_library=id_user.library,
+                path_type=path_type,
             )
 
 
@@ -340,12 +400,15 @@ def _determine_nonblend_dependencies(
             # actually uses this library.
             return None
 
-        if options.use_relative_only and _is_blender_path_absolute(path):
+        if options.use_relative_only and is_blender_path_absolute(path):
             # Skip absolute paths.
             return None
 
+        path_type = PathType.for_bpath(path)
         abspath = path_absolute(path, library=owner_id.library)
-        _deps_repo_add_path(deps_repo, abspath, used_by_library=owner_id.library)
+        _deps_repo_add_path(
+            deps_repo, abspath, used_by_library=owner_id.library, path_type=path_type
+        )
         return None
 
     bpy.data.file_path_foreach(_visit_path_usage)
@@ -546,7 +609,7 @@ def _path_relative_safe(some_path: PurePath) -> PurePath:
     return some_path.with_segments(*parts)
 
 
-def _is_blender_path_absolute(path_from_blender: str) -> bool:
+def is_blender_path_absolute(path_from_blender: str) -> bool:
     """Return True when the path is an absolute path.
 
     For this function, "absolute" is considered a path that remains valid when
@@ -657,12 +720,13 @@ def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
     """Determine while file needs path rewriting.
 
     Sets file_info.needs_path_rewriting=True and file_info.rewrite_rules on all
-    files that reference a relocated file.
+    files that reference a relocated file, or that reference any file by absolute
+    path.
     """
 
     libraries_needing_rewriting: set[BlendFile] = set()
 
-    # Step 1: find all libraries that need rewriting.
+    # Find all libraries that need rewriting because of relocation.
     for file_info in repo.file_infoes.values():
         if not file_info.needs_relocation:
             continue
@@ -679,9 +743,19 @@ def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
             file_info.needs_relocation = False
             continue
 
-        libraries_needing_rewriting |= file_info.references
+        libraries_needing_rewriting |= set(file_info.references)
 
-    # Step 2: find the file_info instances for those libraries, and mark them.
+    # Find all libraries that need rewriting because they reference things by
+    # absolute paths.
+    for file_info in repo.file_infoes.values():
+        for ref, path_type in file_info.references.items():
+            if path_type == PathType.RELATIVE:
+                continue
+
+            # 'ref' is referring to 'file_info' by absolute path.
+            libraries_needing_rewriting.add(ref)
+
+    # Find the file_info instances for those libraries, and mark them.
     for library in libraries_needing_rewriting:
         abs_path = library_abspath(library)
         assert abs_path is not None
@@ -690,7 +764,9 @@ def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
         file_info = repo.file_infoes[abs_path]
         file_info.needs_path_rewriting = True
 
-    # Step 3: determine the rewrite rules.
+    # Determine the rewrite rules. This is only necessary when referencing
+    # relocated files. Rewriting absolute to relative paths doesn't need any
+    # rules, as that's always done.
     for file_abs_path, file_info in repo.file_infoes.items():
         assert file_info.relpath_in_pack is not None, (
             "by now all paths in the pack should be known"

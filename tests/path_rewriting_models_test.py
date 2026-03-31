@@ -47,16 +47,17 @@ class PathRewritingModelsTest(unittest.TestCase):
             Path("/tmp/rewritten.blend"),
         ),
     )
+    # Define via str(PurePath(...)) to ensure correct platform-dependent path separators:
     queue_serial = tuple(
         {
             "msgtype": "queue",
             "payload": {
-                "blendfile": "/tmp/thefile.blend",
+                "blendfile": str(PurePath("/tmp/thefile.blend")),
                 "relpath_in_pack": "thefile.blend",
                 "rewrite_rules": {
-                    "/tmp": "/Volumes/tmp",
+                    str(PurePath("/tmp")): str(PurePath("/Volumes/tmp")),
                 },
-                "save_to": "/tmp/rewritten.blend",
+                "save_to": str(PurePath("/tmp/rewritten.blend")),
             },
         }.items()
     )
@@ -73,17 +74,18 @@ class PathRewritingModelsTest(unittest.TestCase):
             "something went wrong 🙀",
         ),
     )
+    # Define via str(PurePath(...)) to ensure correct platform-dependent path separators:
     report_error_serial = tuple(
         {
             "msgtype": "report-error",
             "payload": [
                 {
-                    "blendfile": "/tmp/thefile.blend",
+                    "blendfile": str(PurePath("/tmp/thefile.blend")),
                     "relpath_in_pack": "thefile.blend",
                     "rewrite_rules": {
-                        "/tmp": "/Volumes/tmp",
+                        str(PurePath("/tmp")): str(PurePath("/Volumes/tmp")),
                     },
-                    "save_to": "/tmp/rewritten.blend",
+                    "save_to": str(PurePath("/tmp/rewritten.blend")),
                 },
                 "something went wrong 🙀",
             ],

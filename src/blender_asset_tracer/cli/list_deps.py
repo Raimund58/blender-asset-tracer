@@ -174,8 +174,7 @@ def _print_file_tree(deps_repo: _FileDependencyRepository) -> None:
 
         print(_print_path(user_file_path))
         for lib_path in sorted(used_paths):
-            path_type = used_paths[lib_path]
-            print(f"{path_type.name[0]}    {_print_path(lib_path)}")
+            print(f"    {_print_path(lib_path)}")
 
     # Start with the source input file.
     source_file_info = deps_repo.source_file_info()

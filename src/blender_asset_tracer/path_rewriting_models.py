@@ -88,7 +88,7 @@ def _cattrs_converter() -> cattrs.Converter:
 
     # Conversion from/to PurePath.
     @converter.register_unstructure_hook
-    def unstructure_to_string(value: PurePath) -> str:
+    def unstructure_purepath(value: PurePath) -> str:
         return str(value)
 
     @converter.register_structure_hook

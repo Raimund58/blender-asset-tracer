@@ -10,7 +10,7 @@ BAT v2 requires Blender 5.1 or newer.
 
 ## Known Limitations
 
-- Blend file linking needs to use relative paths only. So when `file_a.blend` links data from `file_b.blend`, it needs to use `//file_b.blend` as its path, and not the absolute path. This limitation only applies to paths to blend files, other file paths are handled automatically.
+- Blend file linking needs to be consistent within the project, either always using relative paths (strongly recommended) or always using absolute paths (will require rewriting every blend file when packing). This limitation only applies to paths to blend files, other file paths (images, caches, etc.) are handled on a case-by-case basis and can use either style.
 - BAT v2 needs Blender 5.1 or newer to function.
   - Blender 5.1.0 does not report legacy particle system cache files correctly. This is fixed in [blender!155720](https://projects.blender.org/blender/blender/pulls/155720), which will be part of Blender 5.1.1.
   - Blender 5.1.0 does not report Alembic file sequences correctly, see [blender#155774](https://projects.blender.org/blender/blender/issues/155774). For now, BAT does not handle such files correctly either.

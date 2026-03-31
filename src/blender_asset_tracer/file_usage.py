@@ -363,16 +363,12 @@ def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> No
             if id_user.library == used_library:
                 continue
 
-            if id_user.library is None:
-                # This is only correct for directly-linked blend files, and so
-                # only used when the data-block is used by a local data-block.
-                path_type = PathType.for_bpath(used_library.filepath)
-            else:
-                # To determine this for indirectly linked files (so libraries
-                # linking other libraries), they need to be opened by themselves
-                # and investigated further. For now, pray that the project is
-                # set up sanely and uses relative paths for library linking.
-                path_type = PathType.RELATIVE
+            # This is only guaranteed to be correct for directly-linked blend
+            # files. For indirectly-linked blend files, it depends on which link
+            # Blender sees first when loading; in that case, it could be that
+            # BAT misses certain absolute paths, if a mixture of absolute and
+            # relative paths is used within the same project.
+            path_type = PathType.for_bpath(used_library.filepath)
 
             _deps_repo_add_path(
                 deps_repo,

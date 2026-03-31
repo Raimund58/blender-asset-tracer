@@ -165,7 +165,9 @@ def main_loop(
                     payload=(rewrite_request, f"{type(ex).__name__}: {ex!s}"),
                 )
             )
-            return
+            # Keep running the queue, because this might have been an issue with
+            # a specific file, and not impact anything else.
+            continue
 
         tx_queue.put(
             PipeMessage(

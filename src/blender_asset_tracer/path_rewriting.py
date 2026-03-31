@@ -153,30 +153,34 @@ def rewrite_file(
         _logger.info("  - mapping {!s} -> {!s}".format(path, rewritten_path_str))
         return rewritten_path_str
 
-    with file_usage.cache_autoclear():
-        _logger.info("Path-rewriting {!s}".format(blendfile))
+    try:
+        with file_usage.cache_autoclear():
+            _logger.info("Path-rewriting {!s}".format(blendfile))
 
-        # 1. Load the blend file.
-        op_result = bpy.ops.wm.open_mainfile(filepath=str(blendfile))
-        if "FINISHED" not in op_result:
-            raise RuntimeError(f"Could not open blend file {blendfile}")
+            # 1. Load the blend file.
+            op_result = bpy.ops.wm.open_mainfile(filepath=str(blendfile))
+            if "FINISHED" not in op_result:
+                raise RuntimeError(f"Could not open blend file {blendfile}")
 
-        # 2. Do the path remapping.
-        bpy.data.file_path_foreach(_rewrite_path_usage)
+            # 2. Do the path remapping.
+            bpy.data.file_path_foreach(_rewrite_path_usage)
 
-        # 3. Save the blend file.
-        _logger.info("Saving to {!s}".format(save_to))
-        save_to.parent.mkdir(parents=True, exist_ok=True)
-        op_result = bpy.ops.wm.save_as_mainfile(
-            filepath=str(save_to),
-            copy=True,
-            compress=True,
-            # Never do remapping, as the 'save_to' will likely be some cache
-            # directory, and not anywhere near the location in the pack.
-            relative_remap=False,
-        )
-        if "FINISHED" not in op_result:
-            raise RuntimeError(f"Could not save blend file {save_to}")
+            # 3. Save the blend file.
+            _logger.info("Saving to {!s}".format(save_to))
+            save_to.parent.mkdir(parents=True, exist_ok=True)
+            op_result = bpy.ops.wm.save_as_mainfile(
+                filepath=str(save_to),
+                copy=True,
+                compress=True,
+                # Never do remapping, as the 'save_to' will likely be some cache
+                # directory, and not anywhere near the location in the pack.
+                relative_remap=False,
+            )
+            if "FINISHED" not in op_result:
+                raise RuntimeError(f"Could not save blend file {save_to}")
+    finally:
+        # Free memory by unloading the blend file.
+        bpy.ops.wm.read_homefile(use_empty=True)
 
 
 def _compute_ophash(blendfile: Path, file_info: file_usage.FileInfo) -> str:

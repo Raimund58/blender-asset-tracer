@@ -27,6 +27,7 @@ __all__ = (
     "library_abspath",
     "library_is_archive",
     "cache_clear",
+    "AbsolutePathError",
 )
 
 
@@ -366,9 +367,24 @@ def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> No
             # This is only guaranteed to be correct for directly-linked blend
             # files. For indirectly-linked blend files, it depends on which link
             # Blender sees first when loading; in that case, it could be that
-            # BAT misses certain absolute paths, if a mixture of absolute and
+            # BAT misses certain absolute paths when a mixture of absolute and
             # relative paths is used within the same project.
             path_type = PathType.for_bpath(used_library.filepath)
+            if path_type == PathType.ABSOLUTE:
+                # Absolute links between blend files are not supported right
+                # now. To add support for this, BAT would need to open each
+                # linked blend file, to investigate which path is used by which
+                # blend file, in order to understand which file would need path
+                # rewriting.
+                #
+                # This means starting a background process, like what is already
+                # done for the rewriting. However, BAT currently has two stages,
+                # an 'investigation' stage and an 'execution' stage. This
+                # background process + loading each blend file would have to
+                # happen in the investigation stage, making that significantly
+                # heavier. Of course the found results can be cached somewhere,
+                # but it would add significant complexity to the project.
+                raise AbsolutePathError(used_library.filepath)
 
             _deps_repo_add_path(
                 deps_repo,
@@ -790,3 +806,12 @@ def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
             blendfile_info.rewrite_rules[file_abs_path.parent] = (
                 file_info.relpath_in_pack.parent
             )
+
+
+class AbsolutePathError(Exception):
+    """Raised when an unsupported absolute path is found.
+
+    This is raised when an absolute path is found in a place where BAT only
+    supports relative paths. At the moment of writing, this is only for paths
+    linking blend files.
+    """

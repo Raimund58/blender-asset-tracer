@@ -22,6 +22,7 @@ dev_addr = "localhost:3270"
 nav = [
   { "Welcome" = "index.md" },
   { "Installation" = "installation.md" },
+  { "Limitations" = "limitations.md" },
   { "Commandline" = "cli.md" },
   { "Packing" = "packing.md" },
   { "Usage in Add-ons" = "usage_addons.md" },
@@ -62,6 +63,10 @@ pygments_lang_class = true
 [project.markdown_extensions.pymdownx.inlinehilite]
 [project.markdown_extensions.pymdownx.snippets]
 [project.markdown_extensions.pymdownx.superfences]
+# MermaidJS support:
+custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }
+]
 
 # ----------------------------------------------------------------------------
 # Section for configuring theme options

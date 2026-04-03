@@ -867,34 +867,69 @@ def _determine_blendfile_links(repo: FileDependencyRepository) -> None:
     performs linking using an absolute path. This does NOT update path types
     in any FileInfo.references of the files it links from.
     """
-    from . import blendfile as bf_module
+    if not repo.libraries_needing_investigation:
+        return
 
-    fsencoding = sys.getfilesystemencoding()
+    from . import hashing
 
-    # TODO: cache this info.
+    meta_store = hashing.FileMetaStore()
+    meta_store.open()
+
+    meta_store_key = "filepaths"
+
+    def _paths_used_by_blendfile_cached(abspath: Path) -> list[str] | None:
+        cached_metadata = meta_store.get_metadata(abspath)
+        if not cached_metadata:
+            return None
+        try:
+            return cached_metadata[meta_store_key]
+        except KeyError:
+            return None
 
     for blendfile, referenced_paths in repo.libraries_needing_investigation.items():
         assert blendfile is not None, "only linked files should need this investigation"
         abspath = library_abspath(blendfile)
 
-        # Parse the blend file with Python, to get to the library data-blocks
-        # without having to spawn a Blender subprocess and open the file there.
-        bf = bf_module.BlendFile(abspath)
-        try:
-            for lib_block in bf.find_blocks_from_code(b"LI"):
-                # Library::filepath is stored as Library::name in DNA, see DNA_rename_defs.h.
-                filepath = lib_block[b"name"].decode(fsencoding)
+        # Get the filepaths from the metadata store.
+        filepaths = _paths_used_by_blendfile_cached(abspath)
+        if filepaths is None:
+            filepaths = _paths_used_by_blendfile(abspath)
+            meta_store.store_metadata(abspath, {meta_store_key: filepaths})
 
-                lib_abspath = path_absolute(filepath, library=blendfile)
-                if lib_abspath not in referenced_paths:
-                    continue
+        # See if there are any absolute file paths used for library linking.
+        for filepath in filepaths:
+            lib_abspath = path_absolute(filepath, library=blendfile)
+            if lib_abspath not in referenced_paths:
+                # Paths that are linked, but not even indirectly linked into the
+                # current blend file, are not interesting.
+                continue
 
-                if not is_blender_path_absolute(filepath):
-                    continue
+            if not is_blender_path_absolute(filepath):
+                continue
 
-                # Found an absolute path, no need to investigate further.
-                file_info = repo.file_infoes[abspath]
-                file_info.uses_absolute_library_paths = True
-                break
-        finally:
-            bf.close()
+            # Found an absolute path, no need to investigate further.
+            file_info = repo.file_infoes[abspath]
+            file_info.uses_absolute_library_paths = True
+
+    meta_store.close()
+
+
+def _paths_used_by_blendfile(abspath: Path) -> list[str]:
+    """Return the library paths used by this blend file."""
+    from . import blendfile as bf_module
+
+    fsencoding = sys.getfilesystemencoding()
+    filepaths: list[str] = []
+
+    # Parse the blend file with Python, to get to the library data-blocks
+    # without having to spawn a Blender subprocess and open the file there.
+    bf = bf_module.BlendFile(abspath)
+    try:
+        for lib_block in bf.find_blocks_from_code(b"LI"):
+            # Library::filepath is stored as Library::name in DNA, see DNA_rename_defs.h.
+            filepath = lib_block[b"name"].decode(fsencoding)
+            filepaths.append(filepath)
+    finally:
+        bf.close()
+
+    return filepaths

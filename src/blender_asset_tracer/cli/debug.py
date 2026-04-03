@@ -86,11 +86,11 @@ def print_all_files(deps_repo: _FileDependencyRepository, root_path: Path) -> No
 
         print(f"\033[{color}m{relpath}\033[0m:")
         print(f"    in_pack = \033[{in_pack_color}m{in_pack}\033[0m")
-        for ref in info.references:
+        for ref, path_type in info.references.items():
             ref_path = file_usage.library_abspath(ref).relative_to(
                 root_path, walk_up=True
             )
-            print(f"    ref by  = {ref_path if ref else '(local)'}")
+            print(f"    ref by  = {ref_path if ref else '(local)'} / {path_type.name}")
 
 
 def print_relocation_rewriting_needs(
@@ -104,9 +104,12 @@ def print_relocation_rewriting_needs(
         f"\033[{ANSI_PLAIN}mnothing\033[0m:"
     )
     for abs_path, file_info in deps_repo.file_infoes.items():
-        if file_info.needs_path_rewriting and file_info.needs_relocation:
+        needs_rewriting = (
+            file_info.needs_path_rewriting or file_info.uses_absolute_library_paths
+        )
+        if needs_rewriting and file_info.needs_relocation:
             colour = ANSI_BOTH
-        elif file_info.needs_path_rewriting:
+        elif needs_rewriting:
             colour = ANSI_REWRITING
         elif file_info.needs_relocation:
             colour = ANSI_RELOCATING

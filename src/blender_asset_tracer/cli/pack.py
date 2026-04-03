@@ -26,6 +26,8 @@ import sys
 from pathlib import Path, PurePath
 from typing import Any
 
+from blender_asset_tracer import path_rewriting_models
+
 from .. import file_usage, path_rewriting
 from ..path_rewriting_models import RewriteRequest
 from ..path_rewriting_process import BackgroundRewriter
@@ -153,11 +155,15 @@ def perform_path_rewriting(
                 f"by now rewritten_file_path should be known for every file: {abs_path}"
             )
 
+            rewrite_request = path_rewriting_models.RewriteRequest(
+                blendfile=abs_path,
+                relpath_in_root=file_info.relpath_in_pack,
+                rewrite_rules=file_info.rewrite_rules,
+                save_to=file_info.rewritten_file_path,
+                pack_source_root=deps_repo.root_path,
+            )
             bgrewriter.queue_rewrite(
-                abs_path,
-                file_info.relpath_in_pack,
-                file_info.rewrite_rules,
-                file_info.rewritten_file_path,
+                rewrite_request=rewrite_request,
                 on_file_start=on_rewrite_start,
                 on_file_done=on_rewrite_done,
                 on_file_error=on_rewrite_error,

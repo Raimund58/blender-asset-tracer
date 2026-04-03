@@ -53,8 +53,14 @@ exclude = "___|^docs/|/2D_Animation"
 strict = true
 
 [[tool.mypy.overrides]]
-# Mypy doesn't like our use of mypy.api for some reason.
-module = "run_mypy"
+module = [
+  # Mypy doesn't like our use of mypy.api for some reason.
+  "run_mypy",
+  # blendfile is only bundled as a workaround for missing functionality in
+  # Blender 5.1.
+  "blender_asset_tracer.blendfile",
+  "blender_asset_tracer.blendfile.*"
+]
 ignore_errors = true
 
 [tool.ruff]

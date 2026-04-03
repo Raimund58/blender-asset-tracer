@@ -30,13 +30,12 @@ import time
 #          note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
 # Pylance: Variable not allowed in type expression
 from multiprocessing.synchronize import Event as EventClass
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import Any, Callable
 
 import bpy  # pyright: ignore[reportMissingImports]
 
 from .path_rewriting_models import PipeMessage, PipeMsgType, RewriteRequest
-from .type_aliases import RewriteRules
 
 logger = logging.getLogger(__name__)
 
@@ -138,10 +137,7 @@ class BackgroundRewriter:
 
     def queue_rewrite(
         self,
-        blendfile: Path,
-        relpath_in_pack: PurePath,
-        rewrite_rules: RewriteRules,
-        save_to: Path,
+        rewrite_request: RewriteRequest,
         on_file_start: FileStartCallback | None = None,
         on_file_done: FileDoneCallback | None = None,
         on_file_error: FileErrorCallback | None = None,
@@ -160,12 +156,6 @@ class BackgroundRewriter:
 
         self._num_pending_rewrites += 1
 
-        rewrite_request = RewriteRequest(
-            blendfile=blendfile,
-            relpath_in_pack=relpath_in_pack,
-            rewrite_rules=rewrite_rules,
-            save_to=save_to,
-        )
         if on_file_start:
             self._on_start_callbacks[rewrite_request] = on_file_start
         if on_file_done:

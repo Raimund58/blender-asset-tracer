@@ -23,11 +23,25 @@ __all__ = (
 
 @dataclasses.dataclass(frozen=True)
 class RewriteRequest:
+    # The blend file to rewrite, absolute path.
     blendfile: Path
-    # The path of this blendfile in the pack, relative to the pack's root:
-    relpath_in_pack: PurePath
+    # Where it will finally sit in the BAT pack, relative to the pack root.
+    relpath_in_root: PurePath
+    # Mapping from dir to dir.
     rewrite_rules: RewriteRules = dataclasses.field(hash=False, compare=False)
+    # Where to save the rewritten file. This is typically a cache to avoid
+    # repeatedly rewriting the same file with the same rewrite rules.
     save_to: Path
+    # The source root of the BAT pack, absolute path. This is needed for
+    # absolute-to-relative path translations, where there is no explicit rewrite
+    # rule (because the referenced file isn't relocated).
+    #
+    # Even though it'll be the same for every rewritten file in a packing
+    # operation, and could just be sent to the packing background process once,
+    # this makes the background process stateless, and able to handle each
+    # request independently of any other. This simplifies the code, at the cost
+    # of a little bit of extra communication.
+    pack_source_root: Path
 
 
 class PipeMsgType(enum.Enum):

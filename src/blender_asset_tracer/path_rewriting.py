@@ -10,6 +10,8 @@ from typing import Any
 
 import bpy  # pyright: ignore[reportMissingImports]
 
+from blender_asset_tracer import path_rewriting_models
+
 from . import file_usage, hashing
 from .type_aliases import RewriteRules
 
@@ -79,32 +81,29 @@ def determine_files_to_rewrite(
     return blendfiles_to_rewrite
 
 
-def rewrite_file(
-    blendfile: Path,
-    blendfile_path_in_pack: PurePath,
-    rewrite_rules: RewriteRules,
-    save_to: Path,
-) -> None:
+def rewrite_file(rewrite_request: path_rewriting_models.RewriteRequest) -> None:
     """Perform path rewriting on the given file.
 
     NOTE: This opens the blend file as the main blend file.
 
     This function is meant to be called by the background packer process,
     see path_rewriting_worker.py.
-
-    :param blendfile: absolute path to the file to operate on.
-    :param blendfile_path_in_pack: the blend file's location in the pack,
-        relative to the pack's root.
-    :param rewrite_rules: mapping from absolute directory path, to that
-        directory's location in the pack. Can be empty to only rewrite
-        absolute paths to relative paths.
-    :param save_to: absolute path to where to save the rewritten file.
     """
-    assert blendfile.is_absolute()
-    assert not blendfile_path_in_pack.is_absolute()
-    assert blendfile != save_to
+    assert rewrite_request.pack_source_root.is_absolute()
+    assert rewrite_request.blendfile.is_absolute()
+    assert not rewrite_request.relpath_in_root.is_absolute()
+    assert rewrite_request.blendfile != rewrite_request.save_to
 
-    blend_dir_in_pack = blendfile_path_in_pack.parent
+    # Define some local variables to shorten things.
+    rr_blendfile = rewrite_request.blendfile
+    rr_relpath_in_root = rewrite_request.relpath_in_root
+    rr_rewrite_rules = rewrite_request.rewrite_rules
+    rr_save_to = rewrite_request.save_to
+    rr_pack_source_root = rewrite_request.pack_source_root
+
+    # Construct the absolute directory path of the blend file in the pack.
+    blendfile_abspath_in_pack = rr_pack_source_root / rr_relpath_in_root
+    blend_dir_in_pack = blendfile_abspath_in_pack.parent
 
     def _rewrite_path_usage(owner_id: bpy.types.ID, path: str, _: Any) -> str | None:
         """Rewrite this file path, if it's absolute or in the rewrite rules."""
@@ -116,29 +115,36 @@ def rewrite_file(
 
         abs_path = file_usage.path_absolute(path, library=owner_id.library)
 
-        # Look up the file's directory in the rewrite rules.
-        abs_path_dir = abs_path.parent
+        # Construct the file's new absolute path, based on the rewrite rules.
+        relocated_abs_path: Path
         try:
-            rewritten_dir_path_in_pack = rewrite_rules[abs_path_dir]
+            abs_path_dir = abs_path.parent
+            relocated_relpath = rr_rewrite_rules[abs_path_dir]
         except KeyError:
+            # This KeyError means that there is no rewrite rule for this
+            # directory. The path still needs remapping if it's absolute.
+
             # If the path is relative, it can be used as-is.
             if not file_usage.is_blender_path_absolute(path):
-                _logger.info("  - keeping: {!s}".format(abs_path))
+                _logger.info("  - keeping           : %s", path)
                 return None
 
-            # This still needs rewriting if it's an absolute path.
-            _logger.info("  - making relative: {!s}".format(abs_path))
-            rewritten_path_in_pack = PurePath(abs_path)
+            _logger.info("  - making relative   : %s", path)
+            relocated_abs_path = abs_path
         else:
-            # Construct the file path from the rewritten directory path.
-            rewritten_path_in_pack = rewritten_dir_path_in_pack / abs_path.name
+            # Construct the absolute file path from the rewritten directory path.
+            _logger.info("  - rewriting         : %s", path)
+            relocated_abs_path = rr_pack_source_root / relocated_relpath / abs_path.name
 
         # The path is either absolute or relative to the project root in the
         # pack. It has to be rewritten so that it's relative to the blend file.
-        blendfile_relative_path = rewritten_path_in_pack.relative_to(
+        _logger.info("    relocated_abs_path: %s", relocated_abs_path)
+        _logger.info("    blend_dir_in_pack : %s", blend_dir_in_pack)
+        blendfile_relative_path = relocated_abs_path.relative_to(
             blend_dir_in_pack, walk_up=True
         )
         rewritten_path_str = "//" + blendfile_relative_path.as_posix()
+        _logger.info("    rewritten_path    : %s", rewritten_path_str)
 
         # It's possible that rewriting doesn't actually change the path. This
         # can happen when a relocated file references another relocated file,
@@ -148,36 +154,35 @@ def rewrite_file(
         # may make it possible to just do a relocate (instead of no-op
         # rewriting).
         if rewritten_path_str == path:
+            _logger.info("    nothing changed, skipping path")
             return None
-
-        _logger.info("  - mapping {!s} -> {!s}".format(path, rewritten_path_str))
         return rewritten_path_str
 
     try:
         with file_usage.cache_autoclear():
-            _logger.info("Path-rewriting {!s}".format(blendfile))
+            _logger.info("Path-rewriting {!s}".format(rr_blendfile))
 
             # 1. Load the blend file.
-            op_result = bpy.ops.wm.open_mainfile(filepath=str(blendfile))
+            op_result = bpy.ops.wm.open_mainfile(filepath=str(rr_blendfile))
             if "FINISHED" not in op_result:
-                raise RuntimeError(f"Could not open blend file {blendfile}")
+                raise RuntimeError(f"Could not open blend file {rr_blendfile}")
 
             # 2. Do the path remapping.
             bpy.data.file_path_foreach(_rewrite_path_usage)
 
             # 3. Save the blend file.
-            _logger.info("Saving to {!s}".format(save_to))
-            save_to.parent.mkdir(parents=True, exist_ok=True)
+            _logger.info("Saving to {!s}".format(rr_save_to))
+            rr_save_to.parent.mkdir(parents=True, exist_ok=True)
             op_result = bpy.ops.wm.save_as_mainfile(
-                filepath=str(save_to),
+                filepath=str(rr_save_to),
                 copy=True,
                 compress=True,
-                # Never do remapping, as the 'save_to' will likely be some cache
+                # Never do remapping, as the 'rr_save_to' will likely be some cache
                 # directory, and not anywhere near the location in the pack.
                 relative_remap=False,
             )
             if "FINISHED" not in op_result:
-                raise RuntimeError(f"Could not save blend file {save_to}")
+                raise RuntimeError(f"Could not save blend file {rr_save_to}")
     finally:
         # Free memory by unloading the blend file.
         bpy.ops.wm.read_homefile(use_empty=True)

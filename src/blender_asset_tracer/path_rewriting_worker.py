@@ -127,27 +127,20 @@ def main_loop(
         )
 
         try:
-            # Convert the pipe-communication-friendly rewrite rules to a dictionary,
-            # so that it's compatible again with the rest of the code.
-            rewrite_rules_as_dict = dict(rewrite_request.rewrite_rules)
-
             _logger.info(
                 "Path-rewriting file:\n"
                 "  source   : %s\n"
                 "  in pack  : %s\n"
+                "  pack root: %s\n"
                 "  cache to : %s",
                 rewrite_request.blendfile,
-                rewrite_request.relpath_in_pack,
+                rewrite_request.relpath_in_root,
+                rewrite_request.pack_source_root,
                 rewrite_request.save_to,
             )
 
             # Do the actual path rewriting.
-            path_rewriting.rewrite_file(
-                rewrite_request.blendfile,
-                rewrite_request.relpath_in_pack,
-                rewrite_rules_as_dict,
-                rewrite_request.save_to,
-            )
+            path_rewriting.rewrite_file(rewrite_request)
         except Exception as ex:
             # Unexpected errors should really be logged here, as they may
             # indicate bugs (typos, dependencies not found, etc).

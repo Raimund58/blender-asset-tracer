@@ -108,7 +108,6 @@ class FileBasedIntegrationTests(unittest.TestCase):
         load_blendfile(infile)
 
         deps_repo = file_usage.dependencies_of_current_blendfile(blendfiles)
-        file_usage._determine_rewriting_needs(deps_repo)
 
         expect_repo = file_usage.FileDependencyRepository(
             root_path=blendfiles,

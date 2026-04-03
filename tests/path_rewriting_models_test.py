@@ -11,18 +11,19 @@ from blender_asset_tracer import path_rewriting_models as models
 class RewriteRequestHashableTest(unittest.TestCase):
     test_request = models.RewriteRequest(
         blendfile=Path("/tmp/thefile.blend"),
-        relpath_in_pack=PurePath("thefile.blend"),
+        relpath_in_root=PurePath("thefile.blend"),
         rewrite_rules={Path("/tmp"): PurePath("/Volumes/tmp")},
         save_to=Path("/tmp/rewritten.blend"),
+        pack_source_root=Path("/tmp"),
     )
 
     def test_hash(self) -> None:
         _ = hash(self.test_request)
 
-    def test_set_member(self) -> None:
+    def test_can_be_set_member(self) -> None:
         _ = set([self.test_request])
 
-    def test_dict_key(self) -> None:
+    def test_can_be_dict_key(self) -> None:
         _ = {self.test_request: True}
 
 
@@ -41,10 +42,11 @@ class PathRewritingModelsTest(unittest.TestCase):
     queue_msg = models.PipeMessage(
         msgtype=models.PipeMsgType.QUEUE_REWRITE,
         payload=models.RewriteRequest(
-            Path("/tmp/thefile.blend"),
-            PurePath("thefile.blend"),
-            {Path("/tmp"): PurePath("/Volumes/tmp")},
-            Path("/tmp/rewritten.blend"),
+            blendfile=Path("/tmp/thefile.blend"),
+            relpath_in_root=PurePath("thefile.blend"),
+            rewrite_rules={Path("/tmp"): PurePath("/Volumes/tmp")},
+            save_to=Path("/tmp/rewritten.blend"),
+            pack_source_root=Path("/tmp"),
         ),
     )
     # Define via str(PurePath(...)) to ensure correct platform-dependent path separators:
@@ -53,11 +55,12 @@ class PathRewritingModelsTest(unittest.TestCase):
             "msgtype": "queue",
             "payload": {
                 "blendfile": str(PurePath("/tmp/thefile.blend")),
-                "relpath_in_pack": "thefile.blend",
+                "relpath_in_root": "thefile.blend",
                 "rewrite_rules": {
                     str(PurePath("/tmp")): str(PurePath("/Volumes/tmp")),
                 },
                 "save_to": str(PurePath("/tmp/rewritten.blend")),
+                "pack_source_root": str(PurePath("/tmp")),
             },
         }.items()
     )
@@ -66,10 +69,11 @@ class PathRewritingModelsTest(unittest.TestCase):
         msgtype=models.PipeMsgType.REPORT_ERROR,
         payload=(
             models.RewriteRequest(
-                Path("/tmp/thefile.blend"),
-                PurePath("thefile.blend"),
-                {Path("/tmp"): PurePath("/Volumes/tmp")},
-                Path("/tmp/rewritten.blend"),
+                blendfile=Path("/tmp/thefile.blend"),
+                relpath_in_root=PurePath("thefile.blend"),
+                rewrite_rules={Path("/tmp"): PurePath("/Volumes/tmp")},
+                save_to=Path("/tmp/rewritten.blend"),
+                pack_source_root=Path("/tmp"),
             ),
             "something went wrong 🙀",
         ),
@@ -81,11 +85,12 @@ class PathRewritingModelsTest(unittest.TestCase):
             "payload": [
                 {
                     "blendfile": str(PurePath("/tmp/thefile.blend")),
-                    "relpath_in_pack": "thefile.blend",
+                    "relpath_in_root": "thefile.blend",
                     "rewrite_rules": {
                         str(PurePath("/tmp")): str(PurePath("/Volumes/tmp")),
                     },
                     "save_to": str(PurePath("/tmp/rewritten.blend")),
+                    "pack_source_root": str(PurePath("/tmp")),
                 },
                 "something went wrong 🙀",
             ],

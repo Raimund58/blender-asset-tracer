@@ -21,6 +21,8 @@ from collections.abc import Iterator
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, Callable, Protocol
 
+from blender_asset_tracer import path_rewriting_models
+
 from . import file_usage, path_rewriting
 from .path_rewriting_models import RewriteRequest
 from .path_rewriting_process import BackgroundRewriter
@@ -65,10 +67,10 @@ class BATPackReporter(Protocol):
     def on_copy_done(self, src: Path, dest: PurePath) -> None: ...
     def on_copy_error(self, src: Path, dest: PurePath, errormsg: str) -> None: ...
 
-    def on_rewrite_start(self, blendfile: Path, relpath_in_pack: PurePath) -> None: ...
-    def on_rewrite_done(self, blendfile: Path, relpath_in_pack: PurePath) -> None: ...
+    def on_rewrite_start(self, blendfile: Path, save_to: Path) -> None: ...
+    def on_rewrite_done(self, blendfile: Path, save_to: Path) -> None: ...
     def on_rewrite_error(
-        self, blendfile: Path, relpath_in_pack: PurePath, errormsg: str
+        self, blendfile: Path, save_to: Path, errormsg: str
     ) -> None: ...
 
     def on_missing_file(self, blendfile: Path, relpath_in_pack: PurePath) -> None: ...
@@ -335,11 +337,15 @@ class BATPacker:
                 self.reporter.on_missing_file(abs_path, file_info.relpath_in_pack)
                 continue
 
+            rewrite_request = path_rewriting_models.RewriteRequest(
+                blendfile=abs_path,
+                relpath_in_root=file_info.relpath_in_pack,
+                rewrite_rules=file_info.rewrite_rules,
+                save_to=file_info.rewritten_file_path,
+                pack_source_root=self.deps_repo.root_path,
+            )
             bgrewriter.queue_rewrite(
-                abs_path,
-                file_info.relpath_in_pack,
-                file_info.rewrite_rules,
-                file_info.rewritten_file_path,
+                rewrite_request=rewrite_request,
                 on_file_start=self.on_rewrite_start,
                 on_file_done=self.on_rewrite_done,
                 on_file_error=self.on_rewrite_error,
@@ -350,15 +356,13 @@ class BATPacker:
 
     # Bridge between the callbacks of BackgroundRewriter and BATReporter.
     def on_rewrite_start(self, request: RewriteRequest) -> None:
-        self.reporter.on_rewrite_start(request.blendfile, request.relpath_in_pack)
+        self.reporter.on_rewrite_start(request.blendfile, request.save_to)
 
     def on_rewrite_done(self, request: RewriteRequest) -> None:
-        self.reporter.on_rewrite_done(request.blendfile, request.relpath_in_pack)
+        self.reporter.on_rewrite_done(request.blendfile, request.save_to)
 
     def on_rewrite_error(self, request: RewriteRequest, errormsg: str) -> None:
-        self.reporter.on_rewrite_error(
-            request.blendfile, request.relpath_in_pack, errormsg
-        )
+        self.reporter.on_rewrite_error(request.blendfile, request.save_to, errormsg)
 
     def on_callback_error(
         self,

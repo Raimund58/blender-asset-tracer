@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Blender Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import shutil
 import unittest
 from pathlib import Path, PurePath
 
@@ -50,8 +51,8 @@ class FileUsageTest(unittest.TestCase):
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
                 references={
-                    libs["cube.blend"]: file_usage.PathType.RELATIVE,
-                    libs["little_cube.blend"]: file_usage.PathType.RELATIVE,
+                    libs["cube.blend"]: file_usage.PathType.RELATIVE_LIBRARY,
+                    libs["little_cube.blend"]: file_usage.PathType.RELATIVE_LIBRARY,
                 },
             ),
             # Other assets:
@@ -117,7 +118,20 @@ class FileUsageTest(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(expected, deps_repo.file_infoes)
 
-    def test_absolute_references_inside_project_nonblend(self) -> None:
+
+class AbsolutePathsTest(unittest.TestCase):
+    maxDiff = None
+    temp_dir: Path
+
+    def setUp(self) -> None:
+        self.temp_dir = Path(bpy.app.tempdir) / "abs-path-test"
+        self.temp_dir.mkdir(exist_ok=True, parents=True)
+
+    def tearDown(self) -> None:
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+
+    def test_inside_project_nonblend(self) -> None:
         # Test what happens when file references are absolute, but still point
         # within the project root. Such paths will have to be rewritten.
 
@@ -163,7 +177,10 @@ class FileUsageTest(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(expected, deps_repo.file_infoes)
 
-    def test_absolute_references_inside_project_blendfile(self) -> None:
+    def test_inside_project_blendfile_direct(self) -> None:
+        # Test what happens when file references are absolute, but still point
+        # within the project root. Such paths will have to be rewritten.
+
         # "linked_cube.blend" links the cube from "basic_file.blend".
         infile = blendfiles / "linked_cube.blend"
         load_blendfile(infile)
@@ -173,9 +190,110 @@ class FileUsageTest(unittest.TestCase):
         lib = bpy.data.libraries["Lib"]
         lib.filepath = bpy.path.abspath(lib.filepath)
 
-        # This is not supported, see the 'Limitations' section in the documentation.
-        with self.assertRaises(file_usage.AbsolutePathError):
-            file_usage.dependencies_of_current_blendfile(blendfiles)
+        deps_repo = file_usage.dependencies_of_current_blendfile(blendfiles)
+
+        expected = {
+            # The currently-open blend file itself:
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                relpath_in_pack=PurePath("linked_cube.blend"),
+                needs_path_rewriting=True,  # Because the library reference needs updating.
+            ),
+            # Library Blend file:
+            blendfiles / "basic_file.blend": file_usage.FileInfo(
+                source_path=blendfiles / "basic_file.blend",
+                relpath_in_pack=PurePath("basic_file.blend"),
+                references={None: file_usage.PathType.ABSOLUTE},
+            ),
+        }
+
+        self.maxDiff = None
+        self.assertEqual(expected, deps_repo.file_infoes)
+
+    def test_inside_project_blendfile_indirect(self) -> None:
+        # "main.blend" links "lib_cube.blend" and "lib_suzanne.blend".
+        # "lib_cube.blend" and "lib_suzanne.blend" both link "lib_material.blend".
+
+        # Recreate test files to use absolute paths.
+        in_root = blendfiles / "blendfile_linking"
+        in_path_main = in_root / "main.blend"
+        in_path_lib_cube = in_root / "lib_cube.blend"
+        in_path_lib_suzanne = in_root / "lib_suzanne.blend"
+        in_path_lib_material = in_root / "lib_material.blend"
+
+        path_main = self.temp_dir / "main.blend"
+        path_lib_cube = self.temp_dir / "lib_cube.blend"
+        path_lib_suzanne = self.temp_dir / "lib_suzanne.blend"
+        path_lib_material = self.temp_dir / "lib_material.blend"
+
+        # lib_suzanne will use an absolute path to lib_material.
+        load_blendfile(in_path_lib_suzanne)
+        bpy.data.libraries["lib_material.blend"].filepath = str(path_lib_material)
+        save_blendfile(path_lib_suzanne)
+
+        # lib_cube will keep a relative path to lib_material.
+        shutil.copy(in_path_lib_cube, path_lib_cube)
+        shutil.copy(in_path_lib_material, path_lib_material)
+
+        # The main file will use an absolute path to lib_cube.
+        load_blendfile(in_path_main)
+        bpy.data.libraries["lib_cube.blend"].filepath = str(path_lib_cube)
+        save_blendfile(path_main)
+
+        root = self.temp_dir
+        deps_repo = file_usage.dependencies_of_current_blendfile(root)
+
+        # Get new references to the library datablocks, just to be independent
+        # of the above code.
+        lib_cube = bpy.data.libraries["lib_cube.blend"]
+        lib_suzanne = bpy.data.libraries["lib_suzanne.blend"]
+
+        # The library paths pointing to lib_material should be investigated
+        # further, because that's a library that has multiple incoming links.
+        expected_investigation = {
+            lib_cube: {path_lib_material},
+            lib_suzanne: {path_lib_material},
+        }
+        self.assertEqual(
+            expected_investigation,
+            dict(deps_repo.libraries_needing_investigation),
+        )
+
+        expected_file_infoes = {
+            # The currently-open blend file itself:
+            path_main: file_usage.FileInfo(
+                source_path=path_main,
+                relpath_in_pack=PurePath(path_main.name),
+                needs_path_rewriting=True,
+            ),
+            path_lib_cube: file_usage.FileInfo(
+                source_path=path_lib_cube,
+                relpath_in_pack=PurePath("lib_cube.blend"),
+                uses_absolute_library_paths=False,
+                references={None: file_usage.PathType.ABSOLUTE},
+            ),
+            path_lib_suzanne: file_usage.FileInfo(
+                source_path=path_lib_suzanne,
+                relpath_in_pack=PurePath("lib_suzanne.blend"),
+                uses_absolute_library_paths=True,
+                references={None: file_usage.PathType.RELATIVE},
+            ),
+            path_lib_material: file_usage.FileInfo(
+                source_path=path_lib_material,
+                relpath_in_pack=PurePath("lib_material.blend"),
+                uses_absolute_library_paths=False,
+                references={
+                    # These are not updated after investigating in
+                    # _determine_blendfile_links(), because that just sets
+                    # `uses_absolute_library_paths=True` on the file that does
+                    # the linking.
+                    lib_cube: file_usage.PathType.RELATIVE_LIBRARY,
+                    lib_suzanne: file_usage.PathType.RELATIVE_LIBRARY,
+                },
+            ),
+        }
+
+        self.assertEqual(expected_file_infoes, deps_repo.file_infoes)
 
 
 class PathsOutsideProjectsTest(unittest.TestCase):
@@ -307,3 +425,9 @@ def load_blendfile(blendfile: Path) -> None:
     op_result = bpy.ops.wm.open_mainfile(filepath=str(blendfile))
     if "FINISHED" not in op_result:
         raise RuntimeError(f"Could not open blend file {blendfile}: {op_result}")
+
+
+def save_blendfile(blendfile: Path) -> None:
+    op_result = bpy.ops.wm.save_mainfile(filepath=str(blendfile))
+    if "FINISHED" not in op_result:
+        raise RuntimeError(f"Could not save blend file {blendfile}: {op_result}")

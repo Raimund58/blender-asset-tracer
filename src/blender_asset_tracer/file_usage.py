@@ -9,6 +9,8 @@ import enum
 import fnmatch
 import functools
 import os.path
+import sys
+from collections import defaultdict
 from collections.abc import Generator, Iterable
 from pathlib import Path, PurePath
 from typing import Any, Literal
@@ -27,7 +29,6 @@ __all__ = (
     "library_abspath",
     "library_is_archive",
     "cache_clear",
-    "AbsolutePathError",
 )
 
 
@@ -65,9 +66,18 @@ class PathType(enum.Enum):
     # no rewriting is necessary.
     RELATIVE = 0
 
+    # Absolute or relative path used by library linking. This is only a weak
+    # indicator for library data-blocks, as they are deduplicated and only the
+    # first file path that Blender sees is retained. This means that if library
+    # A and B both link to library C, only the path used by A or B is known, but
+    # not both. Furthermore, it is not know whether the path was used by A or B,
+    # so all indirectly linked files are maked with a special path type.
+    RELATIVE_LIBRARY = 1
+    ABSOLUTE_LIBRARY = 2
+
     # Absolute path. These always need to be rewritten, because the BAT pack is
     # going to be at a different absolute path.
-    ABSOLUTE = 1
+    ABSOLUTE = 3
 
     @classmethod
     def for_bpath(cls, path_from_blender: str) -> PathType:
@@ -111,6 +121,15 @@ class FileInfo:
     # `needs_relocation=True`, or it references a dependency by absolute path
     # (which has to be turned into a relative path). Or both.
     needs_path_rewriting: bool = False
+
+    # Indicator that this file uses absolute paths to link to other blend files.
+    #
+    # This means that the file needs path rewriting.
+    #
+    # NOTE: This is only set on linked blend files. The main blend file's direct
+    # links can be inspected directly, setting `needs_path_rewriting=True` when
+    # they are absolute.
+    uses_absolute_library_paths: bool = False
 
     # The path, relative to the project root, where this file will sit on the
     # farm. For to-be-relocated paths, this is initially None, as determining
@@ -162,6 +181,18 @@ class FileDependencyRepository:
 
     # Mapping from absolute path to FileInfo.
     file_infoes: dict[Path, FileInfo] = dataclasses.field(default_factory=dict)
+
+    # Libraries that do indirect linking (from the perspective of the current
+    # blend file). When BAT-packing, these need further investigation by opening
+    # them directly, to see their direct links.
+    #
+    # Keys: library blend files.
+    # Values: the set of other blend files they link to. The blend file may link
+    # to other files as well, but those are not used by the data linked from the
+    # currently-open file, which means they are irrelevant.
+    libraries_needing_investigation: dict[BlendFile, set[Path]] = dataclasses.field(
+        default_factory=lambda: defaultdict(set)
+    )
 
     def __post_init__(self) -> None:
         assert self.root_path.is_absolute()
@@ -313,6 +344,7 @@ def dependencies_of_current_blendfile(
         _determine_dependencies(deps_repo, options)
         _determine_pack_paths_clustered(deps_repo, options)
         _determine_rewriting_needs(deps_repo)
+        _determine_blendfile_links(deps_repo)
 
     return deps_repo
 
@@ -342,15 +374,40 @@ def _add_source_file(deps_repo: FileDependencyRepository) -> None:
 
 
 def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> None:
-    """Determine dependencies between blend files.
+    """Determine dependencies between blend files."""
 
-    This is done based on the loaded data-blocks. When a data-block from file
-    A uses a data-block from file B, this is registered as a dependency between
-    the files.
+    to_lib_type = {
+        PathType.RELATIVE: PathType.RELATIVE_LIBRARY,
+        PathType.ABSOLUTE: PathType.ABSOLUTE_LIBRARY,
+    }
+
+    for user_id, used_id in _foreach_linking_datablock():
+        path_type = PathType.for_bpath(used_id.library.filepath)
+
+        # Don't trust the library path if is an indirect link.
+        if user_id.library is not None:
+            path_type = to_lib_type[path_type]
+
+        _deps_repo_add_path(
+            deps_repo,
+            library_abspath(used_id.library),
+            used_by_library=user_id.library,
+            path_type=path_type,
+        )
+
+
+def _foreach_linking_datablock() -> Generator[tuple[bpy.types.ID, bpy.types.ID]]:
+    """Iterate over all data-blocks that link to another blend file.
+
+    Returns a tuple (user ID, used ID).
+
+    This skips cases where the linked blend file is packed, and only yields
+    those cases where the link actually points to another file on disk.
     """
 
-    for used_id, ids_using_some_id in bpy.data.user_map().items():
-        if not ids_using_some_id:
+    for used_id, ids_using_the_id in bpy.data.user_map().items():
+        if not ids_using_the_id:
+            # Ignore IDs that aren't used by other IDs.
             continue
 
         used_library = used_id.library
@@ -358,40 +415,13 @@ def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> No
             # Not actually a file on disk.
             continue
 
-        used_lib_path = library_abspath(used_library)
-
-        for id_user in ids_using_some_id:
-            if id_user.library == used_library:
+        for id_user in ids_using_the_id:
+            user_library = id_user.library
+            if user_library == used_library:
+                # Don't record self-references.
                 continue
 
-            # This is only guaranteed to be correct for directly-linked blend
-            # files. For indirectly-linked blend files, it depends on which link
-            # Blender sees first when loading; in that case, it could be that
-            # BAT misses certain absolute paths when a mixture of absolute and
-            # relative paths is used within the same project.
-            path_type = PathType.for_bpath(used_library.filepath)
-            if path_type == PathType.ABSOLUTE:
-                # Absolute links between blend files are not supported right
-                # now. To add support for this, BAT would need to open each
-                # linked blend file, to investigate which path is used by which
-                # blend file, in order to understand which file would need path
-                # rewriting.
-                #
-                # This means starting a background process, like what is already
-                # done for the rewriting. However, BAT currently has two stages,
-                # an 'investigation' stage and an 'execution' stage. This
-                # background process + loading each blend file would have to
-                # happen in the investigation stage, making that significantly
-                # heavier. Of course the found results can be cached somewhere,
-                # but it would add significant complexity to the project.
-                raise AbsolutePathError(used_library.filepath)
-
-            _deps_repo_add_path(
-                deps_repo,
-                used_lib_path,
-                used_by_library=id_user.library,
-                path_type=path_type,
-            )
+            yield id_user, used_id
 
 
 def _determine_nonblend_dependencies(
@@ -565,9 +595,11 @@ def path_absolute(
         # Use Blender to resolve blendfile-relative paths (starting with '//') to absolute paths.
         # This does _not_ resolve '..' components, symlinks, etc.
         absolute: str = bpy.path.abspath(blender_path, library=library)
-    else:
+    elif isinstance(blender_path, Path):
         assert library is None, "only strings can be used as library-relative paths"
         absolute = str(blender_path.absolute())
+    else:
+        raise TypeError(f"blender_path should be str or Path, not {type(blender_path)}")
 
     # Normalize to remove '..' components. Do this via os.path, because pathlib
     # always follows symlinks for this. This may bite us in the rear if there
@@ -760,12 +792,32 @@ def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
     # Find all libraries that need rewriting because they reference things by
     # absolute paths.
     for file_info in repo.file_infoes.values():
-        for ref, path_type in file_info.references.items():
-            if path_type == PathType.RELATIVE:
-                continue
+        if not file_info.references:
+            # This file isn't referenced by anything. Should be the main blend file.
+            continue
 
-            # 'ref' is referring to 'file_info' by absolute path.
-            libraries_needing_rewriting.add(ref)
+        if len(file_info.references) == 1:
+            # Only one reference, so we can trust that this is the actually-used
+            # path. This means 'weak' types can be handled as normal types.
+            ref, path_type = list(file_info.references.items())[0]
+            match path_type:
+                case PathType.RELATIVE | PathType.RELATIVE_LIBRARY:
+                    continue
+                case PathType.ABSOLUTE | PathType.ABSOLUTE_LIBRARY:
+                    libraries_needing_rewriting.add(ref)
+            continue
+
+        # If there are multiple references, things get more complex.
+        for ref, path_type in file_info.references.items():
+            match path_type:
+                case PathType.RELATIVE:
+                    # No need to rewrite relative paths here. References to
+                    # relocated files are handled somewhere else.
+                    continue
+                case PathType.RELATIVE_LIBRARY | PathType.ABSOLUTE_LIBRARY:
+                    repo.libraries_needing_investigation[ref].add(file_info.source_path)
+                case PathType.ABSOLUTE:
+                    libraries_needing_rewriting.add(ref)
 
     # Find the file_info instances for those libraries, and mark them.
     for library in libraries_needing_rewriting:
@@ -808,10 +860,41 @@ def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
             )
 
 
-class AbsolutePathError(Exception):
-    """Raised when an unsupported absolute path is found.
+def _determine_blendfile_links(repo: FileDependencyRepository) -> None:
+    """Determine which blend file uses absolute paths for library linking.
 
-    This is raised when an absolute path is found in a place where BAT only
-    supports relative paths. At the moment of writing, this is only for paths
-    linking blend files.
+    This just sets FileInfo.uses_absolute_library_paths=True on the file that
+    performs linking using an absolute path. This does NOT update path types
+    in any FileInfo.references of the files it links from.
     """
+    from . import blendfile as bf_module
+
+    fsencoding = sys.getfilesystemencoding()
+
+    # TODO: cache this info.
+
+    for blendfile, referenced_paths in repo.libraries_needing_investigation.items():
+        assert blendfile is not None, "only linked files should need this investigation"
+        abspath = library_abspath(blendfile)
+
+        # Parse the blend file with Python, to get to the library data-blocks
+        # without having to spawn a Blender subprocess and open the file there.
+        bf = bf_module.BlendFile(abspath)
+        try:
+            for lib_block in bf.find_blocks_from_code(b"LI"):
+                # Library::filepath is stored as Library::name in DNA, see DNA_rename_defs.h.
+                filepath = lib_block[b"name"].decode(fsencoding)
+
+                lib_abspath = path_absolute(filepath, library=blendfile)
+                if lib_abspath not in referenced_paths:
+                    continue
+
+                if not is_blender_path_absolute(filepath):
+                    continue
+
+                # Found an absolute path, no need to investigate further.
+                file_info = repo.file_infoes[abspath]
+                file_info.uses_absolute_library_paths = True
+                break
+        finally:
+            bf.close()

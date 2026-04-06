@@ -96,6 +96,8 @@ def print_all_files(deps_repo: _FileDependencyRepository, root_path: Path) -> No
 def print_relocation_rewriting_needs(
     deps_repo: _FileDependencyRepository,
 ) -> None:
+    import bpy  # pyright: ignore[reportMissingImports]
+
     _header(
         f"Blend files needing "
         f"\033[{ANSI_REWRITING}mrewriting\033[0m, "
@@ -116,6 +118,13 @@ def print_relocation_rewriting_needs(
         else:
             colour = ANSI_PLAIN
         print(f"  - \033[{colour}m{abs_path}\033[0m")
+
+    _header("Libraries needing investigation:")
+    for lib in deps_repo.libraries_needing_investigation:
+        if lib:
+            print(f"  - {lib.name}: {lib.filepath}")
+        else:
+            print(f"  - {bpy.data.filepath}")
 
 
 def print_rewrite_rules(deps_repo: _FileDependencyRepository) -> None:

@@ -71,6 +71,7 @@ class BATPackTest(unittest.TestCase):
             blendfiles / "material_textures.blend": "a857eca5bba79f293ca9898fe58ba3470dc393de0e96e1c412b429a43843aad4",
             blendfiles / "root/char/cube.blend": "cbe8787c177b08aa834a7896fc67bf38571f599bfc1efdd3139fcfab99bf4ee5",
             blendfiles / "root/char/little_cube.blend": "452bedce3b06edb2228c2269444aa41c3ba7181334e0eb572636e776bb9d9065",
+            blendfiles / "root/scene.blend": "1e0eb6aef22be138082cd114cf2739ee3943f2eb1cefe8e4e97278a7f027bd2b",
         })  # fmt: skip
 
         # Start the actual test.
@@ -103,11 +104,13 @@ class BATPackTest(unittest.TestCase):
         # different.
         hashed = {
             "/": {
-                "cube.blend": "ad/ad3e699d5137bf7d37c14441a9bbd60d9593f1ce0ac875b889d8364bb9eea27e.blend",
-                "little_cube.blend": "7f/7f884854611fc72594d0b5d8604481d165e1211a53262abdf855107901f3b15d.blend",
-                "material_textures.blend": "6c/6ceb5bad9d74625a7dd9b1789612b1508347214d267f89b28dd117ce74134982.blend",
+                "scene.blend": "f6/f619b3e75468c26373e00970d56249e62951a2dd39993a54d0ecd62ed4baced9.blend",
+                "cube.blend": "16/1690f4f1966bc8bdbe13173c9d686ab4e503e489913e2d9792838e1836c03f89.blend",
+                "little_cube.blend": "46/46db205da78f7f449af7370b8468693208061e7fbc18753ebe5a5d343921f928.blend",
+                "material_textures.blend": "e5/e5a146a1b5ec74c88052d34906d30db324d04f406aba90a164e2f00e22d4fa2a.blend",
             },
             "\\": {
+                "scene.blend": "08/08447c28916d98482d19031e8d3a9b3ca5110fc007ae67274da542f28546d2e9.blend",
                 "cube.blend": "ba/ba72773eaa507394e8aa20b319711017e4f2f161163a719b4544e0cbcaf6f135.blend",
                 "little_cube.blend": "05/05600032c6c34659f8a93d1b8564ab10e604196e6a49ebf37ec12d89b36c8005.blend",
                 "material_textures.blend": "a3/a390fcfc510e0a2b4facf2bca4f6b1cbdbf27927c7570d1f006246b8fcff9777.blend",
@@ -115,6 +118,7 @@ class BATPackTest(unittest.TestCase):
         }[os.sep]
 
         rewrites = {
+            (blendfiles / "root/scene.blend", self.cache_dir / hashed["scene.blend"]),
             (blendfiles / "root/char/cube.blend", self.cache_dir / hashed["cube.blend"]),
             (blendfiles / "root/char/little_cube.blend", self.cache_dir / hashed["little_cube.blend"]),
             (blendfiles / "material_textures.blend", self.cache_dir / hashed["material_textures.blend"]),
@@ -125,7 +129,7 @@ class BATPackTest(unittest.TestCase):
 
         # Check that each expected file got copied.
         copies = {
-            (blendfiles / "root/scene.blend", self.pack_dir / "scene.blend"),
+            (self.cache_dir / hashed["scene.blend"], self.pack_dir / "scene.blend"),
             (
                 self.cache_dir / hashed["cube.blend"],
                 self.pack_dir / "char/cube.blend",
@@ -167,6 +171,68 @@ class BATPackTest(unittest.TestCase):
             self.pack_dir / "_outside_project/blendfiles/textures/Textures/Buildings/buildings_roof_04-color.jpg",
         }  # fmt: skip
         self.assertEqual(expect_files, actual_files)
+
+        # Final check: open each blend file and inspect the paths it uses, to
+        # verify that the rewriting was succesful.
+        expect_paths_per_file = {
+            "scene.blend": [
+                "//char/cube.blend",
+                "//char/little_cube.blend",
+                "//_outside_project/blendfiles/material_textures.blend",
+            ],
+            "char/little_cube.blend": [
+                "//../_outside_project/blendfiles/material_textures.blend",
+            ],
+            "char/cube.blend": [
+                "//../_outside_project/blendfiles/material_textures.blend",
+            ],
+            "_outside_project/blendfiles/material_textures.blend": [
+                "//textures/Bricks/brick_dotted_04-bump.jpg",
+                "//textures/Bricks/brick_dotted_04-color.jpg",
+                "//textures/Textures/Buildings/buildings_roof_04-color.jpg",
+            ],
+        }
+        actual_paths_per_file = {
+            relpath: self._used_paths(self.pack_dir / relpath)
+            for relpath in expect_paths_per_file
+        }
+        # Test all files in one go, to give an overview of all the differences
+        # (instead of doing it on a file-by-file basis and stopping at the first
+        # mis-match).
+        self.assertEqual(expect_paths_per_file, actual_paths_per_file)
+
+    @staticmethod
+    def _used_paths(blendfile: Path) -> list[str]:
+        """Return the paths directly used by this blendfile.
+
+        Paths used by linked data are NOT included.
+        """
+        load_blendfile(blendfile)
+
+        # Start with the library paths.
+        paths: list[str] = [
+            lib.filepath
+            for lib in bpy.data.libraries
+            if not file_usage.library_is_packed(lib)
+            and not file_usage.library_is_archive(lib)
+        ]
+
+        # Add the non-library paths.
+        def _visit_path_usage(owner_id: bpy.types.ID, path: str, _: Any) -> None:
+            if owner_id.id_type == "LIBRARY":  # Libraries were handled above.
+                return
+            paths.append(path)
+
+        bpy.data.file_path_foreach(
+            _visit_path_usage,
+            flags={"SKIP_PACKED", "SKIP_WEAK_REFERENCES", "SKIP_LINKED"},
+        )
+
+        # Normalize the paths so that unit tests can be written without taking
+        # platform-specific path separators into account. Note that the test
+        # files don't use UNC notation, and so this shortcut can be safely used
+        # here.
+        return [path.replace("\\", "/") for path in paths]
 
 
 @dataclasses.dataclass

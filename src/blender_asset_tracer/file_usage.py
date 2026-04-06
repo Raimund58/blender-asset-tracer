@@ -62,17 +62,18 @@ class PathType(enum.Enum):
     used by various materials), the most dominant type wins.
     """
 
+    # Relative path used by library linking. This is only a weak indicator for
+    # library data-blocks, as they are deduplicated and only the first file path
+    # that Blender sees is retained. This means that if library A and B both
+    # link to library C, only the path used by A or B is known, but not both.
+    # Furthermore, it is not know whether the path was used by A or B, so all
+    # indirectly linked files are maked with a special path type.
+    RELATIVE_LIBRARY = 0
+
     # Relative path. Unless it references a file outside the project root,
     # no rewriting is necessary.
-    RELATIVE = 0
+    RELATIVE = 1
 
-    # Absolute or relative path used by library linking. This is only a weak
-    # indicator for library data-blocks, as they are deduplicated and only the
-    # first file path that Blender sees is retained. This means that if library
-    # A and B both link to library C, only the path used by A or B is known, but
-    # not both. Furthermore, it is not know whether the path was used by A or B,
-    # so all indirectly linked files are maked with a special path type.
-    RELATIVE_LIBRARY = 1
     ABSOLUTE_LIBRARY = 2
 
     # Absolute path. These always need to be rewritten, because the BAT pack is
@@ -392,6 +393,25 @@ def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> No
             deps_repo,
             library_abspath(used_id.library),
             used_by_library=user_id.library,
+            path_type=path_type,
+        )
+
+    # For the currently-open blend file, go over all its libraries. These can
+    # also come from indirect use. If their path were skipped (because the above
+    # code only finds links used by the data, and not these 'ghost' libraries)
+    # the don't get rewritten properly. Blender then can't see it's an
+    # indirectly-linked file and will still complain that it's missing.
+    for lib in bpy.data.libraries:
+        if library_is_packed(lib) or library_is_archive(lib):
+            continue
+
+        path_type = PathType.for_bpath(used_id.library.filepath)
+        path_type = to_lib_type[path_type]
+
+        _deps_repo_add_path(
+            deps_repo,
+            library_abspath(lib),
+            used_by_library=None,
             path_type=path_type,
         )
 
@@ -887,7 +907,6 @@ def _determine_blendfile_links(repo: FileDependencyRepository) -> None:
             return None
 
     for blendfile, referenced_paths in repo.libraries_needing_investigation.items():
-        assert blendfile is not None, "only linked files should need this investigation"
         abspath = library_abspath(blendfile)
 
         # Get the filepaths from the metadata store.

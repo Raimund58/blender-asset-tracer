@@ -766,3 +766,4 @@ def load_blendfile(blendfile: Path) -> None:
     op_result = bpy.ops.wm.open_mainfile(filepath=str(blendfile))
     if "FINISHED" not in op_result:
         raise RuntimeError(f"Could not open blend file {blendfile}: {op_result}")
+    file_usage.cache_clear()

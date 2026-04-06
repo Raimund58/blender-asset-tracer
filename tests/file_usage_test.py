@@ -8,6 +8,8 @@ from pathlib import Path, PurePath
 import bpy  # pyright: ignore[reportMissingImports]
 
 from blender_asset_tracer import file_usage
+from blender_asset_tracer.file_usage import PathType
+from blender_asset_tracer.type_aliases import BlendFile
 
 _my_dir = Path(__file__).resolve().parent
 blendfiles = _my_dir.parent / "tests/blendfiles"
@@ -38,21 +40,22 @@ class FileUsageTest(unittest.TestCase):
                 source_path=root / "char/cube.blend",
                 needs_relocation=False,
                 relpath_in_pack=PurePath("char/cube.blend"),
-                references={None: file_usage.PathType.RELATIVE},
+                references={None: PathType.RELATIVE},
             ),
             root / "char/little_cube.blend": file_usage.FileInfo(
                 source_path=root / "char/little_cube.blend",
                 needs_relocation=False,
                 relpath_in_pack=PurePath("char/little_cube.blend"),
-                references={None: file_usage.PathType.RELATIVE},
+                references={None: PathType.RELATIVE},
             ),
             root.parent / "material_textures.blend": file_usage.FileInfo(
                 source_path=root.parent / "material_textures.blend",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
                 references={
-                    libs["cube.blend"]: file_usage.PathType.RELATIVE_LIBRARY,
-                    libs["little_cube.blend"]: file_usage.PathType.RELATIVE_LIBRARY,
+                    None: PathType.RELATIVE_LIBRARY,
+                    libs["cube.blend"]: PathType.RELATIVE_LIBRARY,
+                    libs["little_cube.blend"]: PathType.RELATIVE_LIBRARY,
                 },
             ),
             # Other assets:
@@ -61,18 +64,14 @@ class FileUsageTest(unittest.TestCase):
                 source_path=root.parent / "textures/Bricks/brick_dotted_04-bump.jpg",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
-                references={
-                    libs["material_textures.blend"]: file_usage.PathType.RELATIVE
-                },
+                references={libs["material_textures.blend"]: PathType.RELATIVE},
             ),
             root.parent
             / "textures/Bricks/brick_dotted_04-color.jpg": file_usage.FileInfo(
                 source_path=root.parent / "textures/Bricks/brick_dotted_04-color.jpg",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
-                references={
-                    libs["material_textures.blend"]: file_usage.PathType.RELATIVE
-                },
+                references={libs["material_textures.blend"]: PathType.RELATIVE},
             ),
             root.parent
             / "textures/Textures/Buildings/buildings_roof_04-color.jpg": file_usage.FileInfo(
@@ -80,9 +79,7 @@ class FileUsageTest(unittest.TestCase):
                 / "textures/Textures/Buildings/buildings_roof_04-color.jpg",
                 needs_relocation=True,  # Because outside the root dir.
                 relpath_in_pack=None,
-                references={
-                    libs["material_textures.blend"]: file_usage.PathType.RELATIVE
-                },
+                references={libs["material_textures.blend"]: PathType.RELATIVE},
             ),
         }
 
@@ -111,7 +108,7 @@ class FileUsageTest(unittest.TestCase):
                 source_path=blendfiles / "textures/Bricks/brick_dotted_04-color.jpg",
                 needs_relocation=False,
                 relpath_in_pack=PurePath("textures/Bricks/brick_dotted_04-color.jpg"),
-                references={None: file_usage.PathType.RELATIVE},
+                references={None: PathType.RELATIVE},
             ),
         }
 
@@ -161,7 +158,7 @@ class AbsolutePathsTest(unittest.TestCase):
             / "textures/Bricks/brick_dotted_04-color.jpg": file_usage.FileInfo(
                 source_path=blendfiles / "textures/Bricks/brick_dotted_04-color.jpg",
                 relpath_in_pack=PurePath("textures/Bricks/brick_dotted_04-color.jpg"),
-                references={None: file_usage.PathType.ABSOLUTE},
+                references={None: PathType.ABSOLUTE},
             ),
             blendfiles
             / "textures/Textures/Buildings/buildings_roof_04-color.jpg": file_usage.FileInfo(
@@ -170,7 +167,7 @@ class AbsolutePathsTest(unittest.TestCase):
                 relpath_in_pack=PurePath(
                     "textures/Textures/Buildings/buildings_roof_04-color.jpg"
                 ),
-                references={None: file_usage.PathType.RELATIVE},
+                references={None: PathType.RELATIVE},
             ),
         }
 
@@ -203,7 +200,7 @@ class AbsolutePathsTest(unittest.TestCase):
             blendfiles / "basic_file.blend": file_usage.FileInfo(
                 source_path=blendfiles / "basic_file.blend",
                 relpath_in_pack=PurePath("basic_file.blend"),
-                references={None: file_usage.PathType.ABSOLUTE},
+                references={None: PathType.ABSOLUTE},
             ),
         }
 
@@ -250,7 +247,8 @@ class AbsolutePathsTest(unittest.TestCase):
 
         # The library paths pointing to lib_material should be investigated
         # further, because that's a library that has multiple incoming links.
-        expected_investigation = {
+        expected_investigation: dict[BlendFile, set[Path]] = {
+            None: {path_lib_material},
             lib_cube: {path_lib_material},
             lib_suzanne: {path_lib_material},
         }
@@ -270,13 +268,13 @@ class AbsolutePathsTest(unittest.TestCase):
                 source_path=path_lib_cube,
                 relpath_in_pack=PurePath("lib_cube.blend"),
                 uses_absolute_library_paths=False,
-                references={None: file_usage.PathType.ABSOLUTE},
+                references={None: PathType.ABSOLUTE},
             ),
             path_lib_suzanne: file_usage.FileInfo(
                 source_path=path_lib_suzanne,
                 relpath_in_pack=PurePath("lib_suzanne.blend"),
                 uses_absolute_library_paths=True,
-                references={None: file_usage.PathType.RELATIVE},
+                references={None: PathType.RELATIVE},
             ),
             path_lib_material: file_usage.FileInfo(
                 source_path=path_lib_material,
@@ -287,8 +285,9 @@ class AbsolutePathsTest(unittest.TestCase):
                     # _determine_blendfile_links(), because that just sets
                     # `uses_absolute_library_paths=True` on the file that does
                     # the linking.
-                    lib_cube: file_usage.PathType.RELATIVE_LIBRARY,
-                    lib_suzanne: file_usage.PathType.RELATIVE_LIBRARY,
+                    None: PathType.RELATIVE_LIBRARY,
+                    lib_cube: PathType.RELATIVE_LIBRARY,
+                    lib_suzanne: PathType.RELATIVE_LIBRARY,
                 },
             ),
         }
@@ -357,7 +356,7 @@ class PathsOutsideProjectsTest(unittest.TestCase):
                 abspath=path,
                 reported_path=None,
                 used_by_library="-none-",
-                path_type=file_usage.PathType.RELATIVE,
+                path_type=PathType.RELATIVE,
             )
 
         file_usage._determine_pack_paths_clustered(repo)

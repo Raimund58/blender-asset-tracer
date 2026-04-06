@@ -12,7 +12,7 @@ sed --posix "s/\(dist\/blender[_-]asset[_-]tracer-\)\([0-9.betalphdv-]*[0-9]\)/\
 git diff
 echo
 echo "Don't forget to commit and tag:"
-echo git commit -m \'Bumped version to $1\' pyproject.toml src/blender_asset_tracer/__init__.py README.md
+echo git commit -m \'Bumped version to $1\' pyproject.toml uv.lock src/blender_asset_tracer/__init__.py README.md
 echo git tag -a v$1 -m \'Tagged version $1\'
 echo
 echo "Build the package & upload to PyPi using:"

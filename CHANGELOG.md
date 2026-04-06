@@ -3,17 +3,28 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
-# Version 1.23 (2026-03-20)
+# Version 2.0 (in development)
+
+- Major rewrite of BAT. It no longer runs as a separate program, but is designed to run inside Blender and use Blender's Python API for inspecting files.
+- Requires Blender 5.1 or newer. 5.1.1 or newer (not yet released at the time of writing) is recommended, see the limitations mentioned in README.md and the documentation.
+- Dropped support for:
+  - Zipped BAT packs. BAT v2 can only pack to a directory.
+  - S3 object storage. BAT v2 can only pack to a locally-mounted filesystem.
+
+
+# Versions 1.xx
+
+## Version 1.23 (2026-03-20)
 
 - Ensure BAT doesn't crash when faced with certain unexpected Geometry Nodes setups. Instead, those nodes are now just ignored.
 
 
-# Version 1.22 (2026-03-20)
+## Version 1.22 (2026-03-20)
 
 - Fix [#104425: Link Chain causes Error performing BAT pack: WinError 32](https://projects.blender.org/studio/flamenco/issues/104425)
 
 
-# Version 1.21 (2025-11-24)
+## Version 1.21 (2025-11-24)
 
 - Require Python version 3.11 or newer. Versions up to Python 3.14 are supported.
 - Skip packed blend files. BAT will assume that the packed file is self-contained, i.e. any asset used by a packed blend file should also be packed.
@@ -24,51 +35,51 @@ changed functionality, fixed bugs).
 - Make `bat blocks` print the biggest block memory address as hexadecimal ([#92900](https://projects.blender.org/blender/blender-asset-tracer/pulls/92900)).
 
 
-# Version 1.20 (2025-07-11)
+## Version 1.20 (2025-07-11)
 
 - Add support for Blender 5.0 compositor node trees ([16c208bc8e13](https://projects.blender.org/blender/blender-asset-tracer/commit/16c208bc8e130c8b1233bdb411ecabdab19af3c5)).
 - Make it possible to run BAT with `python -m blender_asset_tracer` ([6c42d06f0590](https://projects.blender.org/blender/blender-asset-tracer/commit/6c42d06f05909d4ac2096e84557d19dd93382f3a)).
 - Add support for loading the file sub-version ([4c429e921228](https://projects.blender.org/blender/blender-asset-tracer/commit/4c429e921228259f47795f8ad913ad3eff8fac71)).
 
 
-# Version 1.19 (2025-06-16)
+## Version 1.19 (2025-06-16)
 
 - Add support for tracing dynamic paint caches ([#92889](https://projects.blender.org/blender/blender-asset-tracer/pulls/92889)).
 - Add support for the large blendfile header blocks ([#92893](https://projects.blender.org/blender/blender-asset-tracer/pulls/92893)). This is necessary for compatibility with Blender 5.0.
 - Drop support for Python 3.8.
 
-# Version 1.18 (2024-01-11)
+## Version 1.18 (2024-01-11)
 
 - When logging that there is no reader implemented for a certain data-block type, the filepath of the blend file that contains that data-block is now included in the message ([#92885](https://projects.blender.org/blender/blender-asset-tracer/pulls/92885)).
 - Add support for tracing OpenVDB files ([#92884](https://projects.blender.org/blender/blender-asset-tracer/pulls/92884)).
 - Add support for reading `uint8_t` (aka `uchar`, aka `unsigned char`).
 - Fix issue packing lamps with IES files outside of the project folder ([#92886](https://projects.blender.org/blender/blender-asset-tracer/pulls/92886))
 
-# Version 1.17 (2023-12-14)
+## Version 1.17 (2023-12-14)
 
 - Fix issue packing lamps with non-IES 'storage' (File as Flamenco [issue #104269](https://projects.blender.org/studio/flamenco/issues/104269)).
 
-# Version 1.16 (2023-11-02)
+## Version 1.16 (2023-11-02)
 
 - Add `BlendFileBlock.raw_data()` and `.as_string()` functions. These functions interpret the data in a `BlendFileBlock` as either `bytes` or `string`. This can be used to obtain the contents of a `char*` (instead of the more common embedded `char[N]` array).
 - Add support for IES lights ([#92883](https://projects.blender.org/blender/blender-asset-tracer/pulls/92883)).
 - Fix issue packing 'directory' assets (like fluid simulation caches; [#104259](https://projects.blender.org/studio/flamenco/issues/104259)).
 - Drop support for Python 3.7.
 
-# Version 1.15 (2022-12-16)
+## Version 1.15 (2022-12-16)
 
 - Add support for fluid simulation caches.
 - Add support for Python 3.11
 
-# Version 1.14 (2022-09-12)
+## Version 1.14 (2022-09-12)
 
 - While tracing dependencies, call the progress callback function before opening a blend file, instead of before iterating over its contents. The opening (and loading of SDNA) takes a significant amount of time, so this will make any UI (like the Flamenco add-on) report the right filename when waiting for big files.
 
-# Version 1.13 (2022-07-14)
+## Version 1.13 (2022-07-14)
 
 - Improve an error message when packing fails. It now not only mentions that something went wrong, but also which file and which operation on that file (copy or move) was involved.
 
-# Version 1.12 (2022-03-25)
+## Version 1.12 (2022-03-25)
 
 - Removed "late imports", to help isolate Blender add-ons bundling BAT from each other.
 - Support writing `int` and `float` types.
@@ -76,23 +87,23 @@ changed functionality, fixed bugs).
 - Bumped the required version of Python to 3.7. This was already done back in version 1.5, but now also the MyPy configuration takes it into account.
 - Support Python 3.10 (for Blender 3.1)
 
-# Version 1.11 (2022-02-18)
+## Version 1.11 (2022-02-18)
 
 - Support UDIM images.
 
-# Version 1.10 (2022-02-03)
+## Version 1.10 (2022-02-03)
 
 - Avoid doubly-compressing ZStandard (Blender 3) compressed files.
 
-# Version 1.9 (2021-11-19)
+## Version 1.9 (2021-11-19)
 
 - Add `bat version` command to print just the version number and exit.
 
-# Version 1.8 (2021-11-09)
+## Version 1.8 (2021-11-09)
 
 - Compatibility with read-only source files. When packing, file permissions are no longer copied. This means that BAT can modify paths in packed files, even when the source files were read-only.
 
-# Version 1.7 (2021-11-05)
+## Version 1.7 (2021-11-05)
 
 - Add optional support for ZStandard compression, which is used to compress blend files by Blender 3.0+.
   The `zstandard` module is binary, and without it installed BAT will still be able to work in a pure-Python environment. It just won't be able to open compressed files from Blender 3.0 or newer.

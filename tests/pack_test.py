@@ -15,7 +15,7 @@ import bpy  # pyright: ignore[reportMissingImports]
 
 from blender_asset_tracer import file_usage, hashing, pack, path_rewriting
 
-from .integration_test import load_blendfile
+from .file_usage_test import load_blendfile
 
 _my_dir = Path(__file__).resolve().parent
 blendfiles = _my_dir / "blendfiles"

@@ -405,7 +405,13 @@ def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> No
         if library_is_packed(lib) or library_is_archive(lib):
             continue
 
-        path_type = PathType.for_bpath(used_id.library.filepath)
+        # The library files used to load brushes shouldn't be considered
+        # dependencies of this file. Blender doesn't save those relations to the
+        # blend file, and on load it finds the brushes in its own essentials.
+        if all(user.id_type == "BRUSH" for user in lib.users_id):
+            continue
+
+        path_type = PathType.for_bpath(lib.filepath)
         path_type = to_lib_type[path_type]
 
         _deps_repo_add_path(
@@ -431,6 +437,11 @@ def _foreach_linking_datablock() -> Generator[tuple[bpy.types.ID, bpy.types.ID]]
             continue
 
         used_library = used_id.library
+        if used_library and used_id.id_type == "BRUSH":
+            # Brush usage shouldn't be seen as actual links. They are considered
+            # UI data, even though they can be linked from other blend files.
+            return None
+
         if library_is_packed(used_library) or library_is_archive(used_library):
             # Not actually a file on disk.
             continue

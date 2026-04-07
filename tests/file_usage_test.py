@@ -86,6 +86,33 @@ class FileUsageTest(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(expected, deps_repo.file_infoes)
 
+    def test_brush_libraries(self) -> None:
+        infile = blendfiles / "brush_assets.blend"
+        load_blendfile(infile)
+
+        deps_repo = file_usage.FileDependencyRepository(blendfiles)
+        file_usage._determine_dependencies(deps_repo, file_usage.Options())
+
+        self.assertEqual(
+            {"essentials_brushes-gp_draw.blend", "essentials_brushes-gp_vertex.blend"},
+            {lib.name for lib in bpy.data.libraries},
+            "Expecting this file to link to brushes from the bundled essentials.",
+        )
+
+        # The library files used to load brushes shouldn't be considered
+        # dependencies of this file. Blender doesn't save those relations to the
+        # blend file, and finds the brushes again in its own essentials on load.
+        expected = {
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                needs_relocation=False,
+                relpath_in_pack=PurePath("brush_assets.blend"),
+            ),
+        }
+
+        self.maxDiff = None
+        self.assertEqual(expected, deps_repo.file_infoes)
+
     def test_option_use_relative_only(self) -> None:
         infile = blendfiles / "absolute_path.blend"
         load_blendfile(infile)
@@ -421,6 +448,14 @@ class ShortenPathsTest(unittest.TestCase):
 
 
 def load_blendfile(blendfile: Path) -> None:
+    # Reset Blender first. This also unloads any UI data such as brushes. When
+    # loading various blend files in succession, without such a reset in
+    # between, brushes are retained, which can cause unexpected libraries to
+    # appear in bpy.data.libraries.
+    op_result = bpy.ops.wm.read_homefile(use_empty=True)
+    if "FINISHED" not in op_result:
+        raise RuntimeError("Could not read empty file")
+
     op_result = bpy.ops.wm.open_mainfile(filepath=str(blendfile))
     if "FINISHED" not in op_result:
         raise RuntimeError(f"Could not open blend file {blendfile}: {op_result}")

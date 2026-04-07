@@ -10,6 +10,8 @@ import bpy  # pyright: ignore[reportMissingImports]
 
 from blender_asset_tracer import file_usage
 
+from .file_usage_test import load_blendfile
+
 _my_dir = Path(__file__).resolve().parent
 blendfiles = _my_dir / "blendfiles"
 
@@ -760,10 +762,3 @@ class PackedAssetsTest(unittest.TestCase):
         # Convert to dictionary to make the test differ work for us.
         self.maxDiff = None
         self.assertEqual(dataclasses.asdict(expect_repo), dataclasses.asdict(deps_repo))
-
-
-def load_blendfile(blendfile: Path) -> None:
-    op_result = bpy.ops.wm.open_mainfile(filepath=str(blendfile))
-    if "FINISHED" not in op_result:
-        raise RuntimeError(f"Could not open blend file {blendfile}: {op_result}")
-    file_usage.cache_clear()

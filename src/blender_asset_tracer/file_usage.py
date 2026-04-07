@@ -914,9 +914,11 @@ def _determine_blendfile_links(repo: FileDependencyRepository) -> None:
         if not cached_metadata:
             return None
         try:
-            return cached_metadata[meta_store_key]
+            meta: list[str] = cached_metadata[meta_store_key]
         except KeyError:
             return None
+        assert isinstance(meta, list)
+        return meta
 
     for blendfile, referenced_paths in repo.libraries_needing_investigation.items():
         abspath = library_abspath(blendfile)

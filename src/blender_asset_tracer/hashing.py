@@ -133,7 +133,8 @@ class FileMetaStore:
 
         if row is None:
             return None
-        return json.loads(row[0])
+        json_data: dict[str, Any] = json.loads(row[0])
+        return json_data
 
     def store_metadata(self, path: Path, metadata: JSONDict) -> None:
         metadata_as_json = json.dumps(metadata)

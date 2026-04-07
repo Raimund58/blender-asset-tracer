@@ -726,6 +726,31 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
+    def test_geonodes_obj_import(self) -> None:
+        pack_root = blendfiles / "geo-nodes-import-obj"
+        infile = pack_root / "Flamenco_Geonodes_Import_Issue.blend"
+        load_blendfile(infile)
+
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
+
+        obj_file_path = pack_root / "sphere.obj"
+        expect_repo = file_usage.FileDependencyRepository(
+            root_path=pack_root,
+            packed_source_file=infile,
+            file_infoes={
+                infile: file_usage.FileInfo(
+                    source_path=infile,
+                    relpath_in_pack=PurePath(infile.name),
+                ),
+                obj_file_path: file_usage.FileInfo(
+                    source_path=obj_file_path,
+                    relpath_in_pack=PurePath(obj_file_path.name),
+                    references={None: file_usage.PathType.RELATIVE},
+                ),
+            },
+        )
+        self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
 
 class PackedAssetsTest(unittest.TestCase):
     """Test 'archive libraries' for 'packed assets'.

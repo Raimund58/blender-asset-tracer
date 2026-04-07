@@ -729,6 +729,7 @@ def library_abspath(lib: BlendFile | None) -> Path:
 
 
 def library_is_packed(lib: BlendFile) -> bool:
+    """Is this library blendfile-packed (like image files can be packed)?"""
     if lib is None:
         return False
     return lib.packed_file is not None
@@ -736,7 +737,7 @@ def library_is_packed(lib: BlendFile) -> bool:
 
 @functools.lru_cache(maxsize=1024)
 def library_is_archive(lib: BlendFile) -> bool:
-    """Check for 'archive libraries', used for 'packed assets'.
+    """Check for 'archive libraries', used for 'link-packed assets'.
 
     See:
         - [Virtual Library Technical Design][1]

@@ -17,7 +17,8 @@ from typing import Any, Literal
 
 import bpy  # pyright: ignore[reportMissingImports]
 
-from . import path_clustering
+from . import blendfile as bf_module
+from . import hashing, path_clustering
 from .type_aliases import BlendFile, RewriteRules
 
 __all__ = (
@@ -902,8 +903,6 @@ def _determine_blendfile_links(repo: FileDependencyRepository) -> None:
     if not repo.libraries_needing_investigation:
         return
 
-    from . import hashing
-
     meta_store = hashing.FileMetaStore()
     meta_store.open()
 
@@ -949,7 +948,6 @@ def _determine_blendfile_links(repo: FileDependencyRepository) -> None:
 
 def paths_used_by_blendfile(abspath: Path) -> list[str]:
     """Return the library paths used by this blend file."""
-    from . import blendfile as bf_module
 
     fsencoding = sys.getfilesystemencoding()
     filepaths: list[str] = []

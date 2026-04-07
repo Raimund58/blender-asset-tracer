@@ -99,47 +99,48 @@ class BATPackTest(unittest.TestCase):
         self.assertEqual([], reporter.calls["on_rewrite_error"])
         self.assertEqual([], reporter.calls["on_missing_file"])
 
-        # Check rewriting. Since the files are rewritten differently based on
-        # the path separators, the hashes for Windows and for POSIX systems are
-        # different.
-        hashed = {
-            "/": {
-                "scene.blend": "f6/f619b3e75468c26373e00970d56249e62951a2dd39993a54d0ecd62ed4baced9.blend",
-                "cube.blend": "16/1690f4f1966bc8bdbe13173c9d686ab4e503e489913e2d9792838e1836c03f89.blend",
-                "little_cube.blend": "46/46db205da78f7f449af7370b8468693208061e7fbc18753ebe5a5d343921f928.blend",
-                "material_textures.blend": "e5/e5a146a1b5ec74c88052d34906d30db324d04f406aba90a164e2f00e22d4fa2a.blend",
-            },
-            "\\": {
-                "scene.blend": "08/08447c28916d98482d19031e8d3a9b3ca5110fc007ae67274da542f28546d2e9.blend",
-                "cube.blend": "ba/ba72773eaa507394e8aa20b319711017e4f2f161163a719b4544e0cbcaf6f135.blend",
-                "little_cube.blend": "05/05600032c6c34659f8a93d1b8564ab10e604196e6a49ebf37ec12d89b36c8005.blend",
-                "material_textures.blend": "a3/a390fcfc510e0a2b4facf2bca4f6b1cbdbf27927c7570d1f006246b8fcff9777.blend",
-            },
-        }[os.sep]
+        # Check rewriting. Since the files are rewritten by Blender, and opening
+        # & saving the file will change its contents (yay pointers), we can't
+        # predict the exact file paths. Here I use the 'on_rewrite_start' calls
+        # to construct the mapping from input file to rewritten file path. That
+        # at least will ensure that the file handling is consistent.
 
-        rewrites = {
-            (blendfiles / "root/scene.blend", self.cache_dir / hashed["scene.blend"]),
-            (blendfiles / "root/char/cube.blend", self.cache_dir / hashed["cube.blend"]),
-            (blendfiles / "root/char/little_cube.blend", self.cache_dir / hashed["little_cube.blend"]),
-            (blendfiles / "material_textures.blend", self.cache_dir / hashed["material_textures.blend"]),
-        }  # fmt: skip
+        rewritten_file_paths: dict[str, Path] = {}
+        for blendfile, save_to in reporter.calls["on_rewrite_start"]:
+            assert isinstance(blendfile, Path)
+            assert isinstance(save_to, Path)
+            self.assertTrue(save_to.is_relative_to(self.cache_dir), save_to)
+            rewritten_file_paths[blendfile.name] = save_to
 
-        self.assertEqual(rewrites, set(reporter.calls["on_rewrite_start"]))
-        self.assertEqual(rewrites, set(reporter.calls["on_rewrite_done"]))
+        self.assertEqual(
+            {
+                "scene.blend",
+                "cube.blend",
+                "little_cube.blend",
+                "material_textures.blend",
+            },
+            set(rewritten_file_paths.keys()),
+        )
+
+        self.assertEqual(
+            reporter.calls["on_rewrite_done"],
+            reporter.calls["on_rewrite_start"],
+            "All 'started' rewrites should be reported as 'done', in the same order.",
+        )
 
         # Check that each expected file got copied.
         copies = {
-            (self.cache_dir / hashed["scene.blend"], self.pack_dir / "scene.blend"),
+            (rewritten_file_paths["scene.blend"], self.pack_dir / "scene.blend"),
             (
-                self.cache_dir / hashed["cube.blend"],
+                rewritten_file_paths["cube.blend"],
                 self.pack_dir / "char/cube.blend",
             ),
             (
-                self.cache_dir / hashed["little_cube.blend"],
+                rewritten_file_paths["little_cube.blend"],
                 self.pack_dir / "char/little_cube.blend",
             ),
             (
-                self.cache_dir / hashed["material_textures.blend"],
+                rewritten_file_paths["material_textures.blend"],
                 self.pack_dir / "_outside_project/blendfiles/material_textures.blend",
             ),
             (

@@ -14,7 +14,6 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
     """
 
     if _is_inside_blender():
-        # _reactivate_venv()
         callback()
 
     import shlex

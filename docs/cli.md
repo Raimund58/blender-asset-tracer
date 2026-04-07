@@ -31,7 +31,6 @@ Logging is sent to `stderr`, whereas regular output is sent to `stdout`.
 The available subcommands are described in the next sections. Each subcommand
 also takes a `--help` argument to get specific usage instructions.
 
-
 ## List
 
 The `bat list` command lists the dependencies of a blend file. When there are
@@ -55,7 +54,7 @@ The `bat pack` command takes the dependencies as shown by `bat list` and
 copies them to a directory:
 
 ```bash
-$ bat pack [-h] [-p PROJECT] [-e [EXCLUDE ...]] [-r] blendfile target
+$ bat pack [--help] [-p PROJECT] [-e [EXCLUDE ...]] [-r] blendfile target
 ```
 
 
@@ -93,3 +92,31 @@ $ bat pack [-h] [-p PROJECT] [-e [EXCLUDE ...]] [-r] blendfile target
 
 
 For more information see [Packing](packing.md).
+
+## Environment Variables
+
+These environment variables are used by BAT:
+
+/// define
+`BAT_BLENDER=blender`
+
+- Determines which Blender executable BAT uses. The default value is `blender`.
+  `BAT_BLENDER` will be searched for on `$PATH`, so it doesn't have to be a full path.
+- Example: `env BAT_BLENDER=blender51 bat list tests/blendfiles/doubly_linked.blend`
+
+`BAT_BLENDER_VERBOSE=1`
+
+- Normally BAT runs `blender -q` to limit Blender's output and reduce noise. When `BAT_BLENDER_VERBOSE` is set to any value, that `-q` argument is ommitted, and Blender outputs its normal output.
+- Example:
+
+  ```
+  > env BAT_BLENDER_VERBOSE=1 uv run bat list tests/blendfiles/doubly_linked.blend
+  Blender 5.2.0 Alpha
+  00:00.217  blend            | Read blend: "/home/sybren/workspace/bat/blender-asset-tracer/tests/blendfiles/doubly_linked.blend"
+  Info: Read library: '/home/sybren/workspace/bat/blender-asset-tracer/tests/blendfiles/linked_cube.blend', '//linked_cube.blend', parent '<direct>'
+  Info: Read library: '/home/sybren/workspace/bat/blender-asset-tracer/tests/blendfiles/material_textures.blend', '//material_textures.blend', parent '<direct>'
+  Info: Read library: '/home/sybren/workspace/bat/blender-asset-tracer/tests/blendfiles/basic_file.blend', '//basic_file.blend', parent '/home/sybren/workspace/bat/blender-asset-tracer/tests/blendfiles/linked_cube.blend'
+  [after this follows the normal output of 'bat list' on this file]
+  ```
+
+///

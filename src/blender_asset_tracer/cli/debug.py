@@ -92,6 +92,13 @@ def print_all_files(deps_repo: _FileDependencyRepository, root_path: Path) -> No
             )
             print(f"    ref by  = {ref_path if ref else '(local)'} / {path_type.name}")
 
+        if abs_path.suffix != ".blend":
+            continue
+
+        direct_links = file_usage.paths_used_by_blendfile(abs_path)
+        for path in direct_links:
+            print(f"    link in file: {path}")
+
 
 def print_relocation_rewriting_needs(
     deps_repo: _FileDependencyRepository,

@@ -912,7 +912,7 @@ def _determine_blendfile_links(repo: FileDependencyRepository) -> None:
         # Get the filepaths from the metadata store.
         filepaths = _paths_used_by_blendfile_cached(abspath)
         if filepaths is None:
-            filepaths = _paths_used_by_blendfile(abspath)
+            filepaths = paths_used_by_blendfile(abspath)
             meta_store.store_metadata(abspath, {meta_store_key: filepaths})
 
         # See if there are any absolute file paths used for library linking.
@@ -933,7 +933,7 @@ def _determine_blendfile_links(repo: FileDependencyRepository) -> None:
     meta_store.close()
 
 
-def _paths_used_by_blendfile(abspath: Path) -> list[str]:
+def paths_used_by_blendfile(abspath: Path) -> list[str]:
     """Return the library paths used by this blend file."""
     from . import blendfile as bf_module
 

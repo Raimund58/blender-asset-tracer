@@ -17,9 +17,17 @@ from typing import Any, Literal
 
 import bpy  # pyright: ignore[reportMissingImports]
 
-from . import blendfile as bf_module
 from . import hashing, path_clustering
 from .type_aliases import BlendFile, RewriteRules
+
+if bpy.app.version < (5, 2):
+    # Blender 5.2 got a new feature to load library paths from a blend file via
+    # bpy.data.libraries.load(). For 5.1 and older, we have to fall back to
+    # parsing the blend file with Python.
+    from . import blendfile as bf_module
+else:
+    bf_module = None
+
 
 __all__ = (
     "FileInfo",
@@ -30,6 +38,7 @@ __all__ = (
     "library_abspath",
     "library_is_archive",
     "cache_clear",
+    "paths_used_by_blendfile",
 )
 
 
@@ -948,6 +957,29 @@ def _determine_blendfile_links(repo: FileDependencyRepository) -> None:
 
 def paths_used_by_blendfile(abspath: Path) -> list[str]:
     """Return the library paths used by this blend file."""
+
+    # Fallback for Blender 5.1.
+    if bf_module is not None:
+        return _paths_used_by_blendfile_b51(abspath)
+
+    # Can't use bpy.data.libraries.load() on the currently-opened blend file.
+    if Path(bpy.data.filepath).resolve() == abspath.resolve():
+        return [lib.filepath for lib in bpy.data.libraries]
+
+    with bpy.data.libraries.load(str(abspath)) as (data_in, _):
+        # This code assumes PR !157066 has landed.
+        assert hasattr(data_in, "libraries"), "Expected Blender feature not found"
+        filepaths = [lib.filepath for lib in data_in.libraries]
+
+    return filepaths
+
+
+def _paths_used_by_blendfile_b51(abspath: Path) -> list[str]:
+    """Return the library paths used by this blend file.
+
+    This is implemented in pure Python, as a fallback for Blender 5.1.
+    """
+    assert bf_module is not None
 
     fsencoding = sys.getfilesystemencoding()
     filepaths: list[str] = []

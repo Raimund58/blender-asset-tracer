@@ -13,6 +13,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Generator, Iterable
 from pathlib import Path, PurePath
+from types import ModuleType
 from typing import Any, Literal
 
 import bpy  # pyright: ignore[reportMissingImports]
@@ -20,6 +21,7 @@ import bpy  # pyright: ignore[reportMissingImports]
 from . import hashing, path_clustering
 from .type_aliases import BlendFile, RewriteRules
 
+bf_module: ModuleType | None
 if bpy.app.version < (5, 2):
     # Blender 5.2 got a new feature to load library paths from a blend file via
     # bpy.data.libraries.load(). For 5.1 and older, we have to fall back to

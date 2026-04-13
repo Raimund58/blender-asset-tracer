@@ -104,6 +104,6 @@ $ uv build
 
 ```
 $ uv sync --group release
-$ uv run twine check dist/blender_asset_tracer-2.0-beta1.tar.gz dist/blender_asset_tracer-2.0-beta1-*.whl
-$ uv run twine upload -r bat dist/blender_asset_tracer-2.0-beta1.tar.gz dist/blender_asset_tracer-2.0-beta1-*.whl
+$ uv run twine check dist/blender_asset_tracer-2.0-beta2.tar.gz dist/blender_asset_tracer-2.0-beta2-*.whl
+$ uv run twine upload -r bat dist/blender_asset_tracer-2.0-beta2.tar.gz dist/blender_asset_tracer-2.0-beta2-*.whl
 ```

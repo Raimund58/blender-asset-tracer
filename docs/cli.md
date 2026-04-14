@@ -9,19 +9,14 @@ $ bat [common options] {subcommand} [subcommand-specific options]
 
 The common options are all optional:
 
-/// define
 `-v`, `--verbose`
-
-- Log INFO level and higher
+: Log INFO level and higher
 
 `-d`, `--debug`
-
-- Log everything
+: Log everything
 
 `-q`, `--quiet`
-
-- Log at ERROR level and higher
-///
+: Log at ERROR level and higher
 
 For most users only `--verbose` is useful, the other options can be very
 helpful during development or debugging.
@@ -57,39 +52,27 @@ copies them to a directory:
 $ bat pack [--help] [-p PROJECT] [-e [EXCLUDE ...]] [-r] blendfile target
 ```
 
-
-/// define
 `blendfile`
-
-- The Blend file to pack.
+: The Blend file to pack.
 
 `target`
-
-- Directory where to create the pack.
+: Directory where to create the pack.
 
 `-h`, `--help`
+: show this help message and exit
 
-- show this help message and exit
-
-`-p PROJECT`, `--project PROJECT`
-
-- Root directory of your project. Paths to below this directory are kept in the
+`-p DIR`<br>`--project DIR`
+: Root directory of your project. Paths to below this directory are kept in the
   BAT Pack as well, whereas references to assets from outside this directory
   will have to be rewitten. The blend file MUST be inside the project directory.
   If this option is ommitted, the directory containing the blend file is taken
   as the project directoy.
 
-`-e`, `--exclude [EXCLUDE ...]`
-
-- List of glob patterns (like `--exclude '*.abc' '*.vbo'`) to exclude.
+`-e [GLOB ...]`<br>`--exclude [GLOB ...]`
+: List of glob patterns (like `--exclude '*.abc' '*.vbo'`) to exclude.
 
 `-r`, `--relative-only`
-
-- Only pack assets that are referred to with a relative path (e.g. starting with `//`).
-
-///
-
-
+: Only pack assets that are referred to with a relative path (e.g. starting with `//`).
 
 For more information see [Packing](packing.md).
 
@@ -97,20 +80,19 @@ For more information see [Packing](packing.md).
 
 These environment variables are used by BAT:
 
-/// define
 `BAT_BLENDER=blender`
-
-- Determines which Blender executable BAT uses. The default value is `blender`.
+: Determines which Blender executable BAT uses. The default value is `blender`.
   `BAT_BLENDER` will be searched for on `$PATH`, so it doesn't have to be a full path.
-- Example: `env BAT_BLENDER=blender51 bat list tests/blendfiles/doubly_linked.blend`
+
+:  Example: `env BAT_BLENDER=blender51 bat list the_file.blend`
 
 `BAT_BLENDER_VERBOSE=1`
-
-- Normally BAT runs `blender -q` to limit Blender's output and reduce noise. When `BAT_BLENDER_VERBOSE` is set to any value, that `-q` argument is ommitted, and Blender outputs its normal output.
-- Example:
+: Normally BAT runs `blender -q` to limit Blender's output and reduce noise.
+  When `BAT_BLENDER_VERBOSE` is set to any value, that `-q` argument is
+  ommitted, and Blender outputs its normal output.
 
   ```
-  > env BAT_BLENDER_VERBOSE=1 uv run bat list tests/blendfiles/doubly_linked.blend
+  $ env BAT_BLENDER_VERBOSE=1 uv run bat list tests/blendfiles/doubly_linked.blend
   Blender 5.2.0 Alpha
   00:00.217  blend            | Read blend: "/home/sybren/workspace/bat/blender-asset-tracer/tests/blendfiles/doubly_linked.blend"
   Info: Read library: '/home/sybren/workspace/bat/blender-asset-tracer/tests/blendfiles/linked_cube.blend', '//linked_cube.blend', parent '<direct>'
@@ -118,5 +100,3 @@ These environment variables are used by BAT:
   Info: Read library: '/home/sybren/workspace/bat/blender-asset-tracer/tests/blendfiles/basic_file.blend', '//basic_file.blend', parent '/home/sybren/workspace/bat/blender-asset-tracer/tests/blendfiles/linked_cube.blend'
   [after this follows the normal output of 'bat list' on this file]
   ```
-
-///

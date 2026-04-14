@@ -1,7 +1,7 @@
-# Packing
+# BAT-Packing
 
 BAT can create BAT Packs. These packs take the form of a directory, containing
-the packed blend file together with its dependencies. This includes linked blend
+**the packed blend file together with its dependencies**. This includes linked blend
 files, textures, fonts, Alembic files, and caches.
 
 The blend file is inspected relative to a *project directory*. This allows BAT

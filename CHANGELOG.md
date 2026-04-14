@@ -5,12 +5,21 @@ changed functionality, fixed bugs).
 
 # Version 2.0 (in development)
 
-- Major rewrite of BAT. It no longer runs as a separate program, but is designed to run inside Blender and use Blender's Python API for inspecting files.
-- Requires Blender 5.1 or newer. 5.1.1 or newer (not yet released at the time of writing) is recommended, see the limitations mentioned in README.md and the documentation.
+Version 2 is a major re-write of BAT. It no longer runs as a separate program,
+but is designed to run inside Blender and use Blender's Python API for
+inspecting files:
+
+- Blender itself reports which paths are in use, so new developments are automatically picked up by BAT.
+- Since Blender already has the information BAT needs, determining which files to use is much faster.
+- Blender has an API for Python code to replace file paths. BAT v2 uses this method, ensuring that blend files stay intact.
+
+- BAT now Requires Blender 5.1 or newer. 5.1.1 or newer (not yet released at the
+  time of writing) is recommended, see the [limitations mentioned in the documentation][limitations].
 - Dropped support for:
   - Zipped BAT packs. BAT v2 can only pack to a directory.
   - S3 object storage. BAT v2 can only pack to a locally-mounted filesystem.
 
+[limitations]: https://projects.blender.org/blender/blender-asset-tracer/src/branch/main/docs/limitations.md
 
 # Versions 1.xx
 

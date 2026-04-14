@@ -1,0 +1,21 @@
+.md-typeset dl {
+  padding: 0.5em;
+
+  --dt-indent-width: 23ex;
+}
+.md-typeset dt {
+  clear: left;
+  float: left;
+  font-weight: bold;
+  margin: 0 0 0 0;
+  text-align: right;
+  width: var(--dt-indent-width);
+}
+[dir="ltr"] .md-typeset dd {
+  margin: 0 0 0 calc(var(--dt-indent-width) + 2ex);
+  padding: 0 0 0.5em 0;
+}
+[dir="rtl"] .md-typeset dd {
+  margin: 0 calc(var(--dt-indent-width) + 2ex) 0 0;
+  padding: 0 0 0.5em 0;
+}

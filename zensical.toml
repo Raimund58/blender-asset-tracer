@@ -24,7 +24,8 @@ nav = [
   { "Installation" = "installation.md" },
   { "Limitations" = "limitations.md" },
   { "Commandline" = "cli.md" },
-  { "Packing" = "packing.md" },
+  { "BAT-Packing" = "packing.md" },
+  { "Development" = "development.md" },
   { "Usage in Add-ons" = "usage_addons.md" },
   { "License" = "license.md" },
 ]
@@ -37,7 +38,7 @@ nav = [
 #
 # Read more: https://zensical.org/docs/customization/#additional-css
 #
-#extra_css = ["stylesheets/extra.css"]
+extra_css = ["_static/extra.css"]
 
 # With the `extra_javascript` option you can add your own JavaScript to your
 # project to customize the behavior according to your needs.
@@ -53,7 +54,8 @@ nav = [
 [project.markdown_extensions.attr_list]
 [project.markdown_extensions.md_in_html]
 [project.markdown_extensions.pymdownx.blocks.caption]
-[project.markdown_extensions.pymdownx.blocks.definition]
+# [project.markdown_extensions.pymdownx.blocks.definition]
+[project.markdown_extensions.def_list]
 
 # Code highlighting.
 [project.markdown_extensions.pymdownx.highlight]
@@ -62,6 +64,10 @@ line_spans = "__span"
 pygments_lang_class = true
 [project.markdown_extensions.pymdownx.inlinehilite]
 [project.markdown_extensions.pymdownx.snippets]
+
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+
 [project.markdown_extensions.pymdownx.superfences]
 # MermaidJS support:
 custom_fences = [

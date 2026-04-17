@@ -46,9 +46,9 @@ GZIP_MAGIC = b"\x1f\x8b"
 # ZStandard has two magic numbers, the 2nd of which doesn't use the last nibble.
 # See https://tools.ietf.org/id/draft-kucherawy-dispatch-zstd-00.html#rfc.section.2.1.1
 # and https://tools.ietf.org/id/draft-kucherawy-dispatch-zstd-00.html#rfc.section.2.3
-ZSTD_MAGIC = b"\x28\xB5\x2F\xFD"
-ZSTD_MAGIC_SKIPPABLE = b"\x50\x2A\x4D\x18"
-ZSTD_MAGIC_SKIPPABLE_MASK = b"\xF0\xFF\xFF\xFF"
+ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
+ZSTD_MAGIC_SKIPPABLE = b"\x50\x2a\x4d\x18"
+ZSTD_MAGIC_SKIPPABLE_MASK = b"\xf0\xff\xff\xff"
 
 log = logging.getLogger(__name__)
 

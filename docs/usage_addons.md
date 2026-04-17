@@ -10,18 +10,20 @@ add-on (as of Flamenco version 3.9).
 To find dependencies between blend files and other files, BAT uses two Blender
 API functions:
 
-/// define
-`bpy.data.user_map()`
+<style>
+.md-typeset dl {
+  --dt-indent-width: 37ex;
+}
+</style>
 
-- Returns a mapping of which data-block uses which data-block. By inspecting the
+`bpy.data.user_map()`
+: Returns a mapping of which data-block uses which data-block. By inspecting the
   `.library` property of these data-blocks, BAT understands the relationships
   between blend files.
 
 `bpy.data.file_path_foreach(callback)`
-
-- Calls the callback function for every use of an external (non-blend) file.
+: Calls the callback function for every use of an external (non-blend) file.
   These can be images, simulation caches, anything.
-///
 
 These two functions form the core of BAT. If your add-on needs just this
 information, it can just call those functions and not bother including BAT as a

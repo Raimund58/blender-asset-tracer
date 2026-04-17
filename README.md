@@ -4,6 +4,10 @@ Tool to manage assets with Blender.
 
 Blender Asset Tracer, a.k.a. BAT, is a tool for finding dependencies of blend files, and for packing those dependencies into a self-contained directory.
 
+## Documentation
+
+[BAT documentation](https://projects.blender.org/blender/blender-asset-tracer/src/branch/main/docs/index.md) is available on blender.org.
+
 ## Requirements
 
 BAT v2 requires Blender 5.1 or newer.

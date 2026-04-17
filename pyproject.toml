@@ -1,6 +1,6 @@
 [project]
 name = "blender-asset-tracer"
-version = "2.0b2"
+version = "2.0.0"
 description = "Better version of BAT"
 authors = [{ name = "Sybren A. Stüvel", email = "sybren@blender.org" }]
 requires-python = "==3.13.*"

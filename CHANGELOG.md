@@ -3,7 +3,7 @@
 This file logs the changes that are actually interesting to users (new features,
 changed functionality, fixed bugs).
 
-# Version 2.0 (in development)
+# Version 2.0 (2026-04-17)
 
 Version 2 is a major re-write of BAT. It no longer runs as a separate program,
 but is designed to run inside Blender and use Blender's Python API for

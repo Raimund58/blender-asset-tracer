@@ -2,6 +2,7 @@
 name = "blender-asset-tracer"
 version = "2.0.0"
 description = "Better version of BAT"
+readme = "README.md"
 authors = [{ name = "Sybren A. Stüvel", email = "sybren@blender.org" }]
 requires-python = "==3.13.*"
 license = "GPL-3.0-or-later"

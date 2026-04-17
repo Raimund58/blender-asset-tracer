@@ -21,6 +21,11 @@ inspecting files:
 
 [limitations]: https://projects.blender.org/blender/blender-asset-tracer/src/branch/main/docs/limitations.md
 
+Version 2.0.1 updates `pyproject.toml` so that it correctly references
+`README.md` for documentation on https://pypi.org/. Functionally it is the same
+as 2.0.0.
+
+
 # Versions 1.xx
 
 ## Version 1.23 (2026-03-20)

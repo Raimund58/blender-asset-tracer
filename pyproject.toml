@@ -1,6 +1,6 @@
 [project]
 name = "blender-asset-tracer"
-version = "2.0.0"
+version = "2.0.1"
 description = "Better version of BAT"
 readme = "README.md"
 authors = [{ name = "Sybren A. Stüvel", email = "sybren@blender.org" }]

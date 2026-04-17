@@ -21,8 +21,8 @@ inspecting files:
 
 [limitations]: https://projects.blender.org/blender/blender-asset-tracer/src/branch/main/docs/limitations.md
 
-Versions 2.0.1 and 2.0.2 update `pyproject.toml` for proper package descriptions. Functionally they are the same as 2.0.0.
-
+- Versions 2.0.1 and 2.0.2 update `pyproject.toml` for proper package descriptions. Functionally they are the same as 2.0.0.
+- Version 2.0.3 fixes an issue running `bat` from the commandline, when it is installed in another Python environment than Blender's.
 
 # Versions 1.xx
 

@@ -36,7 +36,9 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
         ]
     )
 
+    # Make sure that BAT can be found wherever it was installed.
     # If currently running inside a virtualenv, reactivate it in Blender.
+    # This assumes that the virtualenv is correctly set up and contains BAT.
     if venv := os.environ.get("VIRTUAL_ENV"):
         venv_path = Path(venv)
         match sys.platform:
@@ -47,6 +49,12 @@ def loop_via_blender(callback: Callable[[], NoReturn], script_path: Path) -> NoR
         assert site_dir.is_dir(), site_dir
 
         add_site_code = "import site; site.addsitedir({!r})".format(str(site_dir))
+        args.extend(["--python-expr", add_site_code])
+    else:
+        # No virtualenv means that BAT still needs to be located. Assume it is
+        # installed nicely in some sitedir.
+        bat_site_dir = Path(__file__).resolve().parent.parent
+        add_site_code = f"import site; site.addsitedir({str(bat_site_dir)!r})"
         args.extend(["--python-expr", add_site_code])
 
     # Finally, add the script to run.

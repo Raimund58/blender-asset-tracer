@@ -1,6 +1,6 @@
 [project]
 name = "blender-asset-tracer"
-version = "2.0.2"
+version = "2.0.3"
 description = "BAT parses Blend files and produces dependency information. After installation run `bat --help`"
 readme = "README.md"
 authors = [{ name = "Sybren A. Stüvel", email = "sybren@blender.org" }]

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Blender Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-__version__ = "2.0.2"
+__version__ = "2.0.3"
 
 
 from pathlib import Path

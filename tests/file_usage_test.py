@@ -142,6 +142,44 @@ class FileUsageTest(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(expected, deps_repo.file_infoes)
 
+    def test_mixed_linking(self) -> None:
+        # Test a library that's used for both pack-linking and normal linking.
+        root = blendfiles / "packed_and_normal_linking_combined"
+        infile = root / "main.blend"
+        load_blendfile(infile)
+
+        deps_repo = file_usage.FileDependencyRepository(root)
+        file_usage._determine_dependencies(deps_repo)
+
+        libs = bpy.data.libraries
+        expected = {
+            # The currently-open blend file itself:
+            infile: file_usage.FileInfo(
+                source_path=infile,
+                needs_relocation=False,
+                relpath_in_pack=PurePath("main.blend"),
+            ),
+            # Library Blend files:
+            root / "library.blend": file_usage.FileInfo(
+                source_path=root / "library.blend",
+                needs_relocation=False,
+                relpath_in_pack=PurePath("library.blend"),
+                references={None: PathType.RELATIVE},
+            ),
+            root / "gn_utils.blend": file_usage.FileInfo(
+                source_path=root / "gn_utils.blend",
+                needs_relocation=False,
+                relpath_in_pack=PurePath("gn_utils.blend"),
+                references={
+                    None: PathType.RELATIVE_LIBRARY,
+                    libs["library.blend"]: PathType.RELATIVE_LIBRARY,
+                },
+            ),
+        }
+
+        self.maxDiff = None
+        self.assertEqual(expected, deps_repo.file_infoes)
+
 
 class AbsolutePathsTest(unittest.TestCase):
     maxDiff = None

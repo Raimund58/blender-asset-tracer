@@ -762,6 +762,10 @@ def library_is_packed(lib: BlendFile) -> bool:
 def library_is_archive(lib: BlendFile) -> bool:
     """Check for 'archive libraries', used for 'link-packed assets'.
 
+    Only returns True if this library is _only_ used to host link-packed
+    assets. If it's used for that, but also for regular linking, this
+    function returns False.
+
     See:
         - [Virtual Library Technical Design][1]
         - [Data-Block Embedding Technical Design][2]
@@ -775,15 +779,13 @@ def library_is_archive(lib: BlendFile) -> bool:
     if lib.is_archive:
         return True
 
-    # If the given library is used as archive parent library, it also shouldn't
+    if bool(lib.users_id):
+        # There are datablocks linked from this file.
+        return False
+
+    # If the given library is used _only_ as archive parent library, it shouldn't
     # be seen as a physical file to copy.
-    #
-    # I (Sybren) _think_ this is correct, but I'm not 100% sure. A test with an
-    # embedded node tree produced a library data-block that's the 'archive
-    # parent' one, and that didn't exist on disk.
-    return any(
-        otherlib.archive_parent_library == lib for otherlib in bpy.data.libraries
-    )
+    return bool(lib.archive_libraries)
 
 
 def cache_clear() -> None:

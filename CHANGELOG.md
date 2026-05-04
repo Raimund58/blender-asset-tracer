@@ -24,6 +24,7 @@ inspecting files:
 - Versions 2.0.1 and 2.0.2 update `pyproject.toml` for proper package descriptions. Functionally they are the same as 2.0.0.
 - Version 2.0.3 fixes an issue running `bat` from the commandline, when it is installed in another Python environment than Blender's.
 - Version 2.0.4 fixes an issue where BAT would miss `.blend` files that are used for regular and packed linking at the same time.
+- Version 2.0.5 fixes an issue where BAT would crash on linked data referencing local data.
 
 # Versions 1.xx
 

@@ -180,6 +180,33 @@ class FileUsageTest(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(expected, deps_repo.file_infoes)
 
+    def test_links_from_lib_to_local(self) -> None:
+        root = blendfiles / "blendfile_linking"
+        infile = root / "main.blend"
+        load_blendfile(infile)
+
+        # Create a local mesh, and make a linked object use it.
+        bpy.ops.mesh.primitive_torus_add()
+        mesh_ob = bpy.context.object
+        mesh_data = mesh_ob.data
+        assert mesh_data.name == "Torus"
+
+        # This will create a linked 'user' with a local 'used' datablock.
+        bpy.data.objects["Suzanne"].data = mesh_data
+
+        deps_repo = file_usage.FileDependencyRepository(root)
+        file_usage._determine_dependencies(deps_repo)
+
+        # This test blend file is properly tested in another test, so here we
+        # can suffice by just checking the file paths.
+        expected_paths = {
+            infile,
+            root / "lib_cube.blend",
+            root / "lib_material.blend",
+            root / "lib_suzanne.blend",
+        }
+        self.assertEqual(expected_paths, set(deps_repo.file_infoes.keys()))
+
 
 class AbsolutePathsTest(unittest.TestCase):
     maxDiff = None

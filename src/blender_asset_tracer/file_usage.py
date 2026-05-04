@@ -395,6 +395,13 @@ def _determine_blendfile_dependencies(deps_repo: FileDependencyRepository) -> No
     }
 
     for user_id, used_id in _foreach_linking_datablock():
+        if used_id.library is None:
+            # In this case, user_id is a linked datablock that is using a local
+            # datablock. This is assumed to be the result of some override, or
+            # via Python code editing linked data. In any case, the file doing
+            # the linking will not have a file path that BAT needs to update.
+            continue
+
         path_type = PathType.for_bpath(used_id.library.filepath)
 
         # Don't trust the library path if is an indirect link.

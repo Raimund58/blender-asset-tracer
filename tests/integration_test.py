@@ -386,10 +386,20 @@ class FileBasedIntegrationTests(unittest.TestCase):
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
 
-    def test_missing_files_skip_rewriting(self) -> None:
+    def test_missing_files_still_get_rewrite_rules(self) -> None:
         """
-        When a file would need path rewriting, but only for files that are
-        missing, the path rewriting should be skipped.
+        Issue #92905: even when a referenced file is missing on disk, BAT
+        must still build a rewrite rule for it. Without the rule, the
+        rewriter falls back to the original (possibly cross-anchor)
+        absolute path and crashes during ``Path.relative_to(walk_up=True)``.
+
+        The blend file therefore has ``needs_path_rewriting=True`` and
+        carries rewrite rules pointing at ``_outside_project/...`` for
+        every missing dependency that lives outside the pack root. The
+        missing files themselves are still listed in the dependency
+        repo with ``needs_relocation=True``; the actual file copy is
+        handled (and skipped, with a warning) by ``pack.py`` via
+        ``on_missing_file``.
         """
         pack_root = blendfiles / "subdir"
         infile = pack_root / "missing_textures_dir_up.blend"
@@ -408,25 +418,87 @@ class FileBasedIntegrationTests(unittest.TestCase):
                 infile: file_usage.FileInfo(
                     source_path=infile,
                     relpath_in_pack=PurePath("missing_textures_dir_up.blend"),
-                    needs_path_rewriting=False,  # Would need it if the files were not missing.
+                    needs_path_rewriting=True,
+                    rewrite_rules={
+                        (tex_dir / missing_tex_1).parent: (
+                            tex_dir_in_pack / missing_tex_1
+                        ).parent,
+                        (tex_dir / missing_tex_2).parent: (
+                            tex_dir_in_pack / missing_tex_2
+                        ).parent,
+                    },
                 ),
-                # These files are missing. They should still be listed in the dependencies.
+                # These files are missing on disk, but BAT still records
+                # them so the rewriter and pack.py can act consistently.
                 tex_dir / missing_tex_1: file_usage.FileInfo(
                     source_path=tex_dir / missing_tex_1,
                     relpath_in_pack=tex_dir_in_pack / missing_tex_1,
                     references={None: file_usage.PathType.RELATIVE},
-                    needs_relocation=False,  # Because the file is missing.
+                    needs_relocation=True,
                 ),
                 tex_dir / missing_tex_2: file_usage.FileInfo(
                     source_path=tex_dir / missing_tex_2,
                     relpath_in_pack=tex_dir_in_pack / missing_tex_2,
                     references={None: file_usage.PathType.RELATIVE},
-                    needs_relocation=False,  # Because the file is missing.
+                    needs_relocation=True,
                 ),
             },
         )
 
         self.assertEqualFileDepsInfo(expect_repo, deps_repo)
+
+    def test_bug_test_92905_no_crash(self) -> None:
+        """
+        Issue #92905 follow-up: bug_test_92905.blend (provided by the
+        reporter) references three out-of-project images via absolute
+        paths whose anchors differ on Windows: ``C:/...``, ``D:/...``,
+        and a UNC share ``\\\\IHM-MH-SRV01/...``. On Windows this used
+        to crash inside ``_determine_pack_paths_clustered`` because the
+        prefix-tree's synthetic root was promoted to a cluster root with
+        ``Path('.')`` as its key, and ``_shorten_paths`` rejects
+        zero-component path keys.
+
+        On POSIX hosts the three filepath strings are all coerced into a
+        single anchor (the current working directory) by
+        ``os.path.abspath``, so the structural bug doesn't trigger here.
+        This test still verifies the end-to-end dep-tracing pipeline runs
+        to completion against the reporter's blend without raising; the
+        Windows-specific clustering bug is covered structurally in
+        ``tests/path_clustering_test.py``.
+        """
+        pack_root = blendfiles
+        infile = pack_root / "bug_test_92905.blend"
+        load_blendfile(infile)
+
+        # Must not raise. Before the fix, on Windows this raised
+        # `RuntimeError: Could not shorten these paths: [WindowsPath('.')]`.
+        deps_repo = file_usage.dependencies_of_current_blendfile(pack_root)
+
+        # The blend itself is the packed source file and stays at the
+        # pack root (no relocation needed).
+        self.assertIn(infile, deps_repo.file_infoes)
+        blend_info = deps_repo.file_infoes[infile]
+        self.assertEqual(
+            PurePath("bug_test_92905.blend"), blend_info.relpath_in_pack
+        )
+
+        # Every other entry must have a non-empty relpath_in_pack so the
+        # downstream pack and rewrite steps can proceed without crashing.
+        for abs_path, info in deps_repo.file_infoes.items():
+            self.assertIsNotNone(
+                info.relpath_in_pack,
+                msg=f"{abs_path} has no relpath_in_pack",
+            )
+            assert info.relpath_in_pack is not None  # for the type checker
+            self.assertGreater(
+                len(info.relpath_in_pack.parts),
+                0,
+                msg=(
+                    f"{abs_path} got an empty relpath_in_pack "
+                    f"({info.relpath_in_pack!r}); this would crash "
+                    "downstream consumers"
+                ),
+            )
 
     def test_relative_only(self) -> None:
         pack_root = blendfiles

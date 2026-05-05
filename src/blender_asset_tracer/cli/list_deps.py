@@ -181,10 +181,15 @@ def _print_file_tree(deps_repo: _FileDependencyRepository) -> None:
     _print(source_file_info)
     del deps_repo.file_infoes[source_file_info.source_path]
 
-    # Go over the rest of the files in sorted order.
+    # Go over the rest of the files in sorted order. Only print files
+    # that themselves reference other files (i.e. linked .blend files
+    # that have outgoing dependencies). Leaf assets (images, fonts, ...)
+    # were already printed nested under the file that uses them, so
+    # listing them again as standalone top-level entries would be a
+    # confusing duplication.
     for abs_path in sorted(deps_repo.file_infoes):
         file_info = deps_repo.file_infoes[abs_path]
-        if not file_info.references:
+        if not dependencies.get(file_info.source_path):
             continue
         _print(file_info)
 

@@ -3,7 +3,7 @@
 
 import shutil
 import unittest
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PureWindowsPath
 
 import bpy  # pyright: ignore[reportMissingImports]
 
@@ -266,6 +266,83 @@ class AbsolutePathsTest(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(expected, deps_repo.file_infoes)
 
+    def test_outside_project_missing_file_builds_rewrite_rule(self) -> None:
+        """Issue #92905: a missing file referenced by absolute path outside
+        the project root must still get a rewrite rule, so the rewriter
+        produces a `//`-relative pointer into the BAT pack instead of
+        leaving the foreign-anchor absolute path intact.
+
+        With the original code, missing-file references caused the dep
+        tracer to skip building a rewrite rule. The rewriter then hit
+        `KeyError` and fell back to the original absolute path, which
+        crashed `Path.relative_to(walk_up=True)` whenever that path lived
+        on a different filesystem anchor (e.g. a different Windows drive
+        or UNC vs drive letter).
+        """
+        # Copy `material_textures.blend` into a fresh project root so the
+        # textures it references (and the absolute path we add below) are
+        # all outside the project.
+        proj_root = self.temp_dir / "proj"
+        proj_root.mkdir(parents=True, exist_ok=True)
+        infile = proj_root / "material_textures.blend"
+        shutil.copy(blendfiles / "material_textures.blend", infile)
+        load_blendfile(infile)
+
+        # Point one image at a non-existent absolute path also outside the
+        # project root. This reproduces the cross-anchor scenario from the
+        # bug report (asset on a different drive than the pack root) using
+        # paths that are valid on the test host.
+        missing_dir = self.temp_dir / "elsewhere"
+        missing_path = missing_dir / "missing_image.png"
+        self.assertFalse(
+            missing_path.exists(),
+            "This test depends on the file NOT existing on disk.",
+        )
+        bpy.data.images["brick_dotted_04-bump"].filepath = str(missing_path)
+
+        deps_repo = file_usage.dependencies_of_current_blendfile(proj_root)
+
+        # The blend file itself must be marked for path rewriting.
+        blend_info = deps_repo.file_infoes[infile]
+        self.assertTrue(
+            blend_info.needs_path_rewriting,
+            "the main blend file must be marked for rewriting because it "
+            "references files by absolute path",
+        )
+
+        # The missing file must still appear in the deps repo, with a
+        # relpath_in_pack inside `_outside_project/` so the BAT pack stays
+        # internally consistent if the file is ever supplied later.
+        missing_info = deps_repo.file_infoes[missing_path]
+        self.assertIsNotNone(missing_info.relpath_in_pack)
+        assert missing_info.relpath_in_pack is not None  # for type checker
+        self.assertEqual(
+            "_outside_project",
+            missing_info.relpath_in_pack.parts[0],
+            f"missing file should land under _outside_project/, got "
+            f"{missing_info.relpath_in_pack}",
+        )
+        self.assertEqual(
+            "missing_image.png",
+            missing_info.relpath_in_pack.name,
+            "the file name must be preserved in the relpath_in_pack",
+        )
+
+        # CRITICAL: The blend file must have a rewrite rule covering the
+        # missing file's parent directory. Without this rule, the rewriter
+        # falls into the cross-anchor crash path described in #92905.
+        self.assertIn(
+            missing_path.parent,
+            blend_info.rewrite_rules,
+            f"a rewrite rule must exist for missing file's parent dir; "
+            f"current rules: {dict(blend_info.rewrite_rules)}",
+        )
+        self.assertEqual(
+            missing_info.relpath_in_pack.parent,
+            blend_info.rewrite_rules[missing_path.parent],
+            "the rewrite rule must point at the file's location in the pack",
+        )
+
     def test_inside_project_blendfile_direct(self) -> None:
         # Test what happens when file references are absolute, but still point
         # within the project root. Such paths will have to be rewritten.
@@ -500,16 +577,130 @@ class ShortenPathsTest(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(expected, actual)
 
-    def test_duplicate_paths_error(self) -> None:
+    def test_duplicate_paths_collapse(self) -> None:
+        # Duplicate inputs cannot be made unique by suffix-trimming, but
+        # `_shorten_paths` now degrades gracefully and returns the
+        # collapsed mapping (keyed by original path). Duplicates simply
+        # share a single shortened value. See issue #92905.
         paths = [
             Path("/local/blender/nodes"),
             Path("/local/blender/nodes"),
             Path("/studio/_flamenco/common/assets"),
             Path("/studio/_flamenco/jobs/060_0050-lighting-7qbr/pro/assets"),
         ]
-        # Duplicate paths cannot be made unique, and should cause an error.
-        with self.assertRaises(RuntimeError):
-            file_usage._shorten_paths(paths)
+        actual = file_usage._shorten_paths(paths)
+        # The duplicate is collapsed to a single entry. Suffix-trimming
+        # cannot produce unique short forms (because of the duplicate),
+        # so the function falls back to anchor-prefixed full relative
+        # form. On POSIX the anchor sanitises to ``"anchor"`` (the
+        # fallback string when all anchor characters are stripped). All
+        # outputs are *relative*.
+        for short in actual.values():
+            self.assertFalse(
+                short.is_absolute(), f"shortened path {short!r} should be relative"
+            )
+        # Each (deduplicated) input has its own short form, and the
+        # different originals don't collide.
+        unique_shorts = set(actual.values())
+        self.assertEqual(
+            len(unique_shorts), len(set(paths)),
+            f"distinct inputs should map to distinct shorts, got {actual}",
+        )
+        # Sanity: the original-path components survive in the short form.
+        self.assertIn("nodes", actual[Path("/local/blender/nodes")].parts)
+        self.assertIn(
+            "assets", actual[Path("/studio/_flamenco/common/assets")].parts
+        )
+
+    def test_unc_anchor_only_input(self) -> None:
+        # A UNC root like ``\\\\SERVER\\share`` has parts == (anchor,) on
+        # Windows. `_shorten_paths` must produce a usable RELATIVE form
+        # so that callers can safely concatenate it to a relocated root
+        # (otherwise pathlib's ``/`` operator silently drops the left
+        # side because the right side is absolute). See issue #92905.
+        unc = PureWindowsPath("\\\\IHM-MH-SRV01\\scandaten\\")
+        actual = file_usage._shorten_paths([unc])
+        short = actual[unc]
+        self.assertFalse(
+            PurePath(short).is_absolute(),
+            f"UNC anchor should shorten to a relative path, got {short!r}",
+        )
+        self.assertTrue(
+            short.parts,
+            f"UNC anchor should produce at least one path component, got {short!r}",
+        )
+
+    def test_drive_anchor_only_input(self) -> None:
+        # ``D:\\`` has parts == ("D:\\",) on Windows. After stripping the
+        # anchor only zero parts remain, so `_shorten_paths` must
+        # synthesise a single component (``D``) rather than returning a
+        # zero-part / absolute result.
+        drive = PureWindowsPath("D:\\")
+        actual = file_usage._shorten_paths([drive])
+        short = actual[drive]
+        self.assertFalse(
+            PurePath(short).is_absolute(),
+            f"drive anchor should shorten to a relative path, got {short!r}",
+        )
+        self.assertTrue(
+            short.parts,
+            f"drive anchor should produce at least one path component, got {short!r}",
+        )
+
+    def test_cross_anchor_same_tail_disambiguates(self) -> None:
+        """Two cluster roots that share the same tail across different
+        filesystem anchors must produce distinct short forms.
+
+        Without disambiguation, ``D:\\some\\dir`` and ``E:\\some\\dir``
+        would both shorten to ``some/dir``, the second overwrite the
+        first in the shortened map, and `_determine_pack_paths_clustered`
+        would crash with ``KeyError`` looking up the missing cluster
+        root. See issue #92905.
+        """
+        # PureWindowsPath because POSIX `Path()` parses ``D:\\some\\dir`` as
+        # a single weird component, not as drive + parts.
+        roots = [
+            PureWindowsPath("D:\\some\\dir"),
+            PureWindowsPath("E:\\some\\dir"),
+        ]
+        actual = file_usage._shorten_paths(roots)
+        # Every input path is present in the result mapping.
+        for root in roots:
+            self.assertIn(
+                root, actual,
+                msg=f"cluster root {root!r} missing from shortened map: {actual}",
+            )
+        # And the two short forms are distinct.
+        self.assertNotEqual(
+            actual[roots[0]], actual[roots[1]],
+            msg=(
+                f"distinct cross-anchor cluster roots must shorten to "
+                f"distinct paths, got {actual}"
+            ),
+        )
+        # All outputs are relative.
+        for short in actual.values():
+            self.assertFalse(
+                PurePath(short).is_absolute(),
+                f"shortened path {short!r} should be relative",
+            )
+
+    def test_cross_anchor_unc_drive_same_tail_disambiguates(self) -> None:
+        """Same as above but with a UNC share alongside a drive letter."""
+        roots = [
+            PureWindowsPath("\\\\SERVER\\share\\common\\assets"),
+            PureWindowsPath("D:\\common\\assets"),
+        ]
+        actual = file_usage._shorten_paths(roots)
+        for root in roots:
+            self.assertIn(
+                root, actual,
+                msg=f"cluster root {root!r} missing from shortened map: {actual}",
+            )
+        self.assertNotEqual(
+            actual[roots[0]], actual[roots[1]],
+            msg=f"got {actual}",
+        )
 
 
 def load_blendfile(blendfile: Path) -> None:

@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import unittest
-from pathlib import Path
+import unittest.mock
+from pathlib import Path, PureWindowsPath
 
 from blender_asset_tracer import path_clustering
 
@@ -69,3 +70,73 @@ class PathClusteringTest(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(expected, clusters)
+
+    def test_cross_anchor_paths_get_separate_clusters(self) -> None:
+        """
+        Issue #92905 follow-up: when the input paths span multiple
+        filesystem anchors (different Windows drives, drive + UNC share,
+        ...), there is no shared filesystem prefix. The synthetic root of
+        the prefix tree must NOT be promoted to a cluster root, because
+        its associated path would be ``Path('.')`` (no anchor, no parts),
+        which crashes ``file_usage._shorten_paths`` with
+        ``RuntimeError: Could not shorten these paths: [...Path('.')]``.
+
+        Each anchor must form its own top-level cluster instead.
+        """
+        # PurePath has no `.is_dir()` method; ``add_file_path`` uses it
+        # only as an early sanity check. Stub it for these pure-path inputs.
+        with unittest.mock.patch.object(
+            PureWindowsPath, "is_dir", lambda self: False, create=True
+        ):
+            # The exact scenario from bug_test.blend: one asset on D:\,
+            # one asset on a UNC share. Different anchors, no common
+            # prefix beyond ``Path('.')``.
+            clusters = path_clustering.build_clusters(
+                [
+                    PureWindowsPath("D:/tmp/20260310_124549_d.jpg"),
+                    PureWindowsPath(
+                        r"\\IHM-MH-SRV01/scandaten/Export_dwg_to_OBJ.png"
+                    ),
+                ],
+            )
+
+        # Two clusters, one per anchor; neither is the meaningless
+        # ``Path('.')`` cluster.
+        self.assertEqual(2, len(clusters))
+        for cluster_prefix in clusters.keys():
+            self.assertNotEqual(
+                Path("."),
+                cluster_prefix,
+                msg=(
+                    f"cluster prefix {cluster_prefix!r} has no path "
+                    "components and would crash _shorten_paths"
+                ),
+            )
+            self.assertGreater(
+                len(cluster_prefix.parts),
+                0,
+                msg=f"cluster prefix {cluster_prefix!r} must have at least one part",
+            )
+
+    def test_two_drives_get_separate_clusters(self) -> None:
+        """
+        Two Windows drive letters split into one cluster per drive.
+        Regression test for the same root cause as
+        ``test_cross_anchor_paths_get_separate_clusters``.
+        """
+        with unittest.mock.patch.object(
+            PureWindowsPath, "is_dir", lambda self: False, create=True
+        ):
+            clusters = path_clustering.build_clusters(
+                [
+                    PureWindowsPath("D:/tmp/a.jpg"),
+                    PureWindowsPath("E:/other/b.jpg"),
+                ],
+            )
+
+        self.assertEqual(2, len(clusters))
+        for cluster_prefix in clusters.keys():
+            self.assertGreater(len(cluster_prefix.parts), 0)
+            # Each cluster's prefix must start with one of the original
+            # anchors, not ``.``.
+            self.assertIn(cluster_prefix.parts[0], ("D:\\", "E:\\"))

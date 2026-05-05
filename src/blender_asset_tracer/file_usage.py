@@ -121,11 +121,14 @@ class FileInfo:
     # `relpath_in_pack` is only allowed to be None if this is True.
     #
     # Even after `relpath_in_pack` is determined for relocated files, this field
-    # can remain set to True.
+    # remains set to True.
     #
-    # The only reason it will be reset to False is when the file does not
-    # actually exist on disk (because then there is nothing to relocate). This
-    # prevents the path rewriting of files that only refer to missing files.
+    # This field is True for files that live outside the project root, even if
+    # they don't currently exist on disk. The path rewriting must produce a
+    # `//`-relative pointer into `_outside_project/` regardless, so that the
+    # produced BAT pack is internally consistent when the missing asset is
+    # later supplied. The file copy step in `pack.py` reports missing files
+    # via `on_missing_file()` separately.
     needs_relocation: bool = False
 
     # Indicator that this file needs path rewriting.
@@ -584,34 +587,89 @@ def _shorten_paths(paths: list[Path]) -> dict[Path, Path]:
     """Determine the shortest paths possible while keeping them unique.
 
     Returns mapping {path: shortened version of that path}.
+
+    The shortened forms are always **relative** paths, even when the
+    inputs are absolute. Anchors are stripped before shortening so that
+    callers like ``_determine_pack_paths_clustered`` can safely concatenate
+    the result to another path: ``relocated_root / short_root`` is
+    guaranteed to stay rooted at ``relocated_root``.
+
+    Without this guarantee, paths like ``\\\\SERVER\\share`` (a single-
+    component UNC anchor) would survive shortening unchanged and remain
+    absolute, making the join above silently drop ``relocated_root`` and
+    leak the source anchor into the BAT pack -- which then crashes the
+    rewriter on a different filesystem anchor than the blend file. See
+    issue #92905.
     """
 
-    max_suffix_size = max(len(path.parts) for path in paths)
+    # Sanitise an anchor into a single safe path component.
+    # ``D:\\`` -> ``D``; ``\\\\srv\\share`` -> ``srv_share``.
+    def _anchor_component(orig: Path) -> str:
+        anchor = orig.anchor or str(orig)
+        return (
+            anchor.replace("\\", "_")
+            .replace("/", "_")
+            .replace(":", "")
+            .strip("_")
+        ) or "anchor"
+
+    # Strip anchors so the shortened forms are always relative. Use
+    # `_path_relative_safe` so UNC anchors like `\\\\SERVER\\share` are
+    # treated as a single anchor part, the same way `pathlib` does.
+    # We keep the original (absolute) paths around as the dict keys for
+    # callers that need to round-trip, but the values are relative.
+    relativized: list[tuple[Path, PurePath]] = [
+        (orig, _path_relative_safe(orig)) for orig in paths
+    ]
+
+    # If stripping the anchor reduces a path to zero parts (e.g. the
+    # cluster prefix was a bare anchor like ``D:\\`` or ``\\\\srv\\share``),
+    # synthesise one part from the original anchor so the result is
+    # still a usable relative path.
+    def _ensure_non_empty(orig: Path, rel: PurePath) -> PurePath:
+        if rel.parts:
+            return rel
+        return rel.with_segments(_anchor_component(orig))
+
+    relativized = [(orig, _ensure_non_empty(orig, rel)) for orig, rel in relativized]
+
+    max_suffix_size = max(len(rel.parts) for _, rel in relativized)
 
     # TODO: make this smarter:
     # - Use a counter per conflict, instead of globally.
     # - Alternate between taking a suffix and a prefix.
-    shortened_prefixes: dict[Path, Path] = {}
+    shortened_prefixes: dict[PurePath, Path] = {}
     for suffix_size in range(1, max_suffix_size + 1):
         shortened_prefixes.clear()
 
-        for cluster_prefix in paths:
-            # Take the last N parts of the cluster prefix, hoping that that'll make things unique.
-            short_parts = cluster_prefix.parts[-suffix_size:]
-            shortened = cluster_prefix.with_segments(*short_parts)
+        for orig, rel in relativized:
+            # Take the last N parts of the relative prefix, hoping that that'll make things unique.
+            short_parts = rel.parts[-suffix_size:] or rel.parts
+            shortened = rel.with_segments(*short_parts)
 
             # If there are collisions, this will overwrite an already-existing value.
             # That's fine, it'll get detected later.
-            shortened_prefixes[shortened] = cluster_prefix
+            shortened_prefixes[shortened] = orig
 
-        if len(shortened_prefixes) == len(paths):
+        if len(shortened_prefixes) == len(relativized):
             # Every path had a unique prefix.
             break
     else:
-        # Impossible to shorten, which means there were duplicates. This should
-        # not have happened, because the paths come from the clustering
-        # algorithm, and were keys in a dictionary.
-        raise RuntimeError(f"Could not shorten these paths: {paths!r}")
+        # Could not produce unique short forms by suffix-trimming alone.
+        # This happens when two cluster roots share the same tail across
+        # different filesystem anchors (e.g. ``D:\some\dir`` and
+        # ``E:\some\dir``). Disambiguate by prepending the sanitised
+        # anchor component so cross-anchor cluster roots end up at
+        # distinct locations inside the BAT pack. See issue #92905.
+        # Even anchor-prefixed full relative form may collide if the
+        # input list itself contained the same path more than once.
+        # Production callers always pass dict keys (always unique), so
+        # any remaining collision here is a no-op de-duplication.
+        shortened_prefixes = {}
+        for orig, rel in relativized:
+            anchor_part = _anchor_component(orig)
+            disambiguated = rel.with_segments(anchor_part, *rel.parts)
+            shortened_prefixes[disambiguated] = orig
 
     # Flip the dictionary, so that it can be keyed by original (not shortened) path.
     return {orig: short for short, orig in shortened_prefixes.items()}
@@ -824,21 +882,24 @@ def _determine_rewriting_needs(repo: FileDependencyRepository) -> None:
     libraries_needing_rewriting: set[BlendFile] = set()
 
     # Find all libraries that need rewriting because of relocation.
+    #
+    # Note that this includes files that don't exist on disk. The file copy
+    # step in pack.py handles missing files via on_missing_file(), but the
+    # path rewriting must still happen so that the produced BAT pack contains
+    # blend files with `//`-relative paths pointing into `_outside_project/`,
+    # regardless of whether the referenced asset is currently available. This
+    # is essential when the pack root and an absolute dependency live on
+    # different filesystem anchors (e.g. different Windows drives or UNC
+    # paths), in which case a missing rewrite rule would force the rewriter
+    # to fall back to the original (cross-anchor) absolute path and crash
+    # `Path.relative_to(walk_up=True)`. See issue #92905.
     for file_info in repo.file_infoes.values():
         if not file_info.needs_relocation:
             continue
 
-        # Check whether the file actually exists on disk. There is no need to do
-        # path rewriting when a file doesn't exist anyway. This _could_ be seen
-        # as security issue, as referencing a missing file could make Blender
-        # load an out-of-project file on the farm. However, the
-        # Options(use_relative_only=True) option already makes that possible.
-        if not file_info.source_path.exists():
-            assert file_info.relpath_in_pack is not None, (
-                "This code should only be executed once relpack_in_pack is determined"
-            )
-            file_info.needs_relocation = False
-            continue
+        assert file_info.relpath_in_pack is not None, (
+            "This code should only be executed once relpath_in_pack is determined"
+        )
 
         libraries_needing_rewriting |= set(file_info.references)
 

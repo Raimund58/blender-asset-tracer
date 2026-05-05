@@ -19,11 +19,20 @@ def build_clusters(
     """Subdivide the given paths into clusters.
 
     Returns a dictionary `{prefix: [paths in that prefix]}`.
+
+    The synthetic root node of the prefix tree is never used as a cluster
+    root. Its associated path would be ``Path('.')`` (a relative path with
+    no anchor), which is meaningless as a filesystem prefix and crashes
+    downstream consumers such as ``file_usage._shorten_paths`` (which
+    requires every cluster prefix to have at least one path component).
+    Cross-anchor inputs (different Windows drives, drive + UNC share, ...)
+    have no shared filesystem prefix, so each anchor forms its own
+    top-level cluster instead of being collapsed under ``Path('.')``.
     """
     root = PrefixTreeNode("")
     for p in paths:
         root.add_file_path(p)
-    root.mark_clusters(min_files_per_cluster)
+    root.mark_clusters(min_files_per_cluster, _is_root=True)
     return root.collect_clusters(Path())
 
 
@@ -81,12 +90,20 @@ class PrefixTreeNode:
                     clusters[cluster_path].append(Path(file_path.name))
         return clusters
 
-    def mark_clusters(self, min_files: int) -> int:
-        """Mark nodes as cluster roots if subtree has enough files."""
+    def mark_clusters(self, min_files: int, *, _is_root: bool = False) -> int:
+        """Mark nodes as cluster roots if subtree has enough files.
+
+        The synthetic root node (``_is_root=True``) is never marked as a
+        cluster root: its cluster path would be ``Path('.')``, which has no
+        filesystem anchor and is rejected by downstream consumers (see
+        ``build_clusters``). Children of root are still allowed to become
+        cluster roots, so cross-anchor inputs split into one cluster per
+        anchor.
+        """
         total_files = len(self.files)
         for child in self.children.values():
             total_files += child.mark_clusters(min_files)
-        if total_files >= min_files:
+        if not _is_root and total_files >= min_files:
             self.is_cluster_root = True
             # Once a node is a cluster root, don't let its files count towards
             # its parents' file count.
